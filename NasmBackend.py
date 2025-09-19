@@ -67,3 +67,29 @@ class NASMBackend:
         elif isinstance(expr, NumberNode):
             self.text.append(f"    mov eax, {expr.value}")
 
+class NASMBackend:
+    # … existing …
+
+    def _eval_expr(self, expr):
+        if isinstance(expr, CallNode):
+            # Evaluate args right-to-left (x64 Windows ABI)
+            for arg in reversed(expr.args):
+                self._eval_expr(arg)
+                self.text.append("    push rax")
+            self.text.append(f"    call {expr.name}")
+            self.text.append(f"    add rsp, {len(expr.args)*8}")
+        elif isinstance(expr, NumberNode):
+            self.text.append(f"    mov eax, {expr.value}")
+        elif isinstance(expr, BinOpNode):
+            self._eval_expr(expr.left)
+            self.text.append("    push rax")
+            self._eval_expr(expr.right)
+            self.text.append("    mov rbx, rax")
+            self.text.append("    pop rax")
+            if expr.op == "+": self.text.append("    add eax, ebx")
+            elif expr.op == "-": self.text.append("    sub eax, ebx")
+            elif expr.op == "*": self.text.append("    imul eax, ebx")
+            elif expr.op == "/":
+                self.text.append("    cdq")
+                self.text.append("    idiv ebx")
+
