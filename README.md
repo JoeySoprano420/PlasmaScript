@@ -206,8 +206,6 @@ From Hello World → to AAA graphics pipelines → to closures with arenas → P
 
 ⸻
 
-👉 Do you want me to write this into a whitepaper-style PDF (executive + technical sections) that reads like a formal language launch doc, with tables, diagrams, and benchmark comparisons?
-
 ---
 
 # 🌟 PlasmaScript Specification
