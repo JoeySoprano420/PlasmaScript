@@ -1,0 +1,11 @@
+Prog main() {
+    let ptr = malloc(32)
+    store(ptr, 0, 72) ; 'H'
+    store(ptr, 1, 101); 'e'
+    store(ptr, 2, 108); 'l'
+    store(ptr, 3, 108); 'l'
+    store(ptr, 4, 111); 'o'
+    Print ["Hello PlasmaScript!"]
+    free(ptr)
+}
+end
