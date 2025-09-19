@@ -189,3 +189,35 @@ class LLVMBackend:
             # Step 4: return fn pointer as closure (no heap object yet)
             return fn
 
+class LLVMBackend:
+    def __init__(self, ast):
+        self.ast = ast
+        self.module = ir.Module(name="plasmascript")
+        self.printf = None
+        self.funcs = {}
+        self.locals = {}
+        self.malloc = None
+
+    def _declare_runtime(self):
+        self.printf_ty = ir.FunctionType(ir.IntType(32), [ir.PointerType(ir.IntType(8))], var_arg=True)
+        self.printf = ir.Function(self.module, self.printf_ty, name="printf")
+        malloc_ty = ir.FunctionType(ir.IntType(8).as_pointer(), [ir.IntType(64)])
+        self.malloc = ir.Function(self.module, malloc_ty, name="malloc")
+
+    def _make_closure(self, fn, captured):
+        # struct { fn_ptr, env_ptr }
+        env_size = 4 * len(captured)  # assume i32 per capture
+        env_ptr = self.builder.call(self.malloc, [ir.Constant(ir.IntType(64), env_size)])
+        # store captures into env
+        for i, (name, ptr) in enumerate(captured.items()):
+            val = self.builder.load(ptr)
+            gep = self.builder.gep(env_ptr, [ir.Constant(ir.IntType(32), i*4)])
+            self.builder.store(val, gep)
+        # pack closure {fn, env_ptr}
+        closure_ty = ir.LiteralStructType([fn.type, env_ptr.type])
+        closure = self.builder.alloca(closure_ty)
+        fnptr = self.builder.bitcast(fn, fn.type)
+        self.builder.store(fnptr, self.builder.gep(closure, [ir.Constant(ir.IntType(32), 0), ir.Constant(ir.IntType(32), 0)]))
+        self.builder.store(env_ptr, self.builder.gep(closure, [ir.Constant(ir.IntType(32), 0), ir.Constant(ir.IntType(32), 1)]))
+        return closure
+
