@@ -1,0 +1,13 @@
+Prog main() {
+    let base = 10
+
+    let makeAdder = Func(x) {
+        return Func(y) {
+            return x + y + base
+        }
+    }
+
+    let add5 = makeAdder(5)
+    Print [add5(3)]    ; 18
+}
+end
