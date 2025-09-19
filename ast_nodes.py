@@ -56,3 +56,12 @@ class ClosureNode:
         self.fn_name = fn_name
         self.captures = captures  # list of (varname, value)
 
+class MallocNode:
+    def __init__(self, size): self.size = size
+class FreeNode:
+    def __init__(self, ptr): self.ptr = ptr
+class StoreNode:
+    def __init__(self, ptr, offset, value): self.ptr, self.offset, self.value = ptr, offset, value
+class LoadNode:
+    def __init__(self, ptr, offset): self.ptr, self.offset = ptr, offset
+
