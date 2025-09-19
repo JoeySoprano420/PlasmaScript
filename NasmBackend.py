@@ -134,3 +134,18 @@ class NASMBackend:
     lea rcx, [rax+8]  ; env pointer
     call rbx
 
+class NASMBackend:
+    def _eval_expr(self, expr):
+        if isinstance(expr, MallocNode):
+            self.text.append("    mov rcx, <size_reg>")
+            self.text.append("    call malloc")
+        elif isinstance(expr, FreeNode):
+            self.text.append("    mov rcx, rax  ; ptr to free")
+            self.text.append("    call free")
+        elif isinstance(expr, StoreNode):
+            # assume rax=ptr, rbx=offset, rcx=value
+            self.text.append("    mov [rax+rbx], ecx")
+        elif isinstance(expr, LoadNode):
+            # assume rax=ptr, rbx=offset
+            self.text.append("    mov eax, [rax+rbx]")
+
