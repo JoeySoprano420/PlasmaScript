@@ -95,3 +95,37 @@ class LLVMBackend:
             return self.builder.call(self.funcs[expr.name], args)
         # … (reuse number/string/binop handling from earlier) …
 
+class LLVMBackend:
+    # … existing …
+
+    def _declare_func(self, node):
+        # dynamic arg count support
+        fnty = ir.FunctionType(ir.IntType(32), [ir.IntType(32)]*len(node.params))
+        fn = ir.Function(self.module, fnty, name=node.name)
+        if node.export: fn.attributes.add("dllexport")
+        self.funcs[node.name] = fn
+
+    def _define_func(self, node):
+        fn = self.funcs[node.name]
+        block = fn.append_basic_block("entry")
+        self.builder = ir.IRBuilder(block)
+        self.locals = {}
+        for i, arg in enumerate(fn.args):
+            ptr = self.builder.alloca(ir.IntType(32), name=node.params[i])
+            self.builder.store(arg, ptr)
+            self.locals[node.params[i]] = ptr
+        for stmt in node.body.children:
+            if isinstance(stmt, ReturnNode):
+                val = self._eval_expr(stmt.expr)
+                self.builder.ret(val)
+            elif isinstance(stmt, PrintNode):
+                self._print(stmt.expr)
+        if not block.is_terminated:
+            self.builder.ret(ir.Constant(ir.IntType(32), 0))
+
+    def _eval_expr(self, expr):
+        # literals, binops, vars handled as before …
+        if isinstance(expr, CallNode):
+            args = [self._eval_expr(a) for a in expr.args]
+            return self.builder.call(self.funcs[expr.name], args)
+
