@@ -121,3 +121,16 @@ class NASMBackend:
                     self.text.append("    ret")
             return label
 
+; closure layout [fn_addr][captured1][captured2]...
+; RAX = closure object ptr
+
+    mov rcx, <size>
+    call malloc
+    mov [rax], <fn_addr>
+    mov [rax+8], <capture1>
+    mov [rax+12], <capture2>
+
+    mov rbx, [rax]    ; fn_addr
+    lea rcx, [rax+8]  ; env pointer
+    call rbx
+
