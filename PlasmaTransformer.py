@@ -26,3 +26,17 @@ class PlasmaTransformer(Transformer):
     def var(self, items): return VarNode(str(items[0]))
     def binop(self, items): return BinOpNode(items[0], str(items[1]), items[2])
 
+class PlasmaTransformer(Transformer):
+    def func_def(self, items):
+        kw = str(items[0])
+        name = "main" if kw in ("Prog","Main") else str(items[1])
+        params = []
+        body = items[-1]
+        return FuncNode(name, params, body)
+
+    def export_def(self, items):
+        return FuncNode(str(items[0]), [], items[-1], export=True)
+
+    def func_call(self, items):
+        return CallNode(str(items[0]), items[1:])
+
