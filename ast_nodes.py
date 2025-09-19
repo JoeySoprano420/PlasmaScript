@@ -21,3 +21,10 @@ class VarNode:
 class BinOpNode:
     def __init__(self, left, op, right): self.left, self.op, self.right = left, op, right
 
+class FuncNode:
+    def __init__(self, name, params, body, export=False):
+        self.name, self.params, self.body, self.export = name, params, body, export
+
+class CallNode:
+    def __init__(self, name, args):
+        self.name, self.args = name, args
