@@ -1,0 +1,8 @@
+Prog main() {
+    let f = Func(x, y) { return x + y }
+    Print [f(3, 4)]    ; 7
+
+    let g = Func(z) { return f(z, 2) }
+    Print [g(5)]       ; 7
+}
+end
