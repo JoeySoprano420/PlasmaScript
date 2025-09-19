@@ -1,0 +1,7 @@
+| Type     | Example          |
+| -------- | ---------------- |
+| `text`   | `"hello world"`  |
+| `number` | `42`             |
+| `bool`   | `true`, `false`  |
+| `list`   | `[1, 2, 3]`      |
+| `object` | `{name: "Shay"}` |
