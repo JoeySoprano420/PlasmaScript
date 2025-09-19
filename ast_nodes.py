@@ -51,3 +51,8 @@ class LambdaNode:
         self.body = body
         self.captures = captures or []
 
+class ClosureNode:
+    def __init__(self, fn_name, captures):
+        self.fn_name = fn_name
+        self.captures = captures  # list of (varname, value)
+
