@@ -45,3 +45,9 @@ class CallNode:
 class ReturnNode:
     def __init__(self, expr): self.expr = expr
 
+class LambdaNode:
+    def __init__(self, params, body, captures=None):
+        self.params = params
+        self.body = body
+        self.captures = captures or []
+
