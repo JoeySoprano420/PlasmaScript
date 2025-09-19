@@ -183,3 +183,26 @@ load_call:   "load" "(" expr "," expr ")"
      | store_call    -> store_expr
      | load_call     -> load_expr
 
+arena_init:  "arena_init" "(" expr ")"
+arena_alloc: "arena_alloc" "(" expr "," expr ")"
+arena_reset: "arena_reset" "(" expr ")"
+
+rc_alloc:    "rc_alloc" "(" expr ")"
+retain:      "retain" "(" expr ")"
+release:     "release" "(" expr ")"
+
+bump_init:   "bump_init" "(" expr ")"
+bump_alloc:  "bump_alloc" "(" expr "," expr ")"
+bump_reset:  "bump_reset" "(" expr ")"
+
+?expr: ...
+     | arena_init  -> arena_init_expr
+     | arena_alloc -> arena_alloc_expr
+     | arena_reset -> arena_reset_expr
+     | rc_alloc    -> rc_alloc_expr
+     | retain      -> retain_expr
+     | release     -> release_expr
+     | bump_init   -> bump_init_expr
+     | bump_alloc  -> bump_alloc_expr
+     | bump_reset  -> bump_reset_expr
+
