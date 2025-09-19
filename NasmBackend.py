@@ -93,3 +93,18 @@ class NASMBackend:
                 self.text.append("    cdq")
                 self.text.append("    idiv ebx")
 
+class NASMBackend:
+    def _eval_expr(self, expr):
+        if isinstance(expr, VarNode):
+            if expr.name in self.funcs:
+                self.text.append(f"    mov rax, {expr.name}")  # function address
+        elif isinstance(expr, CallNode):
+            self._eval_expr(expr.func)  # put callee address in RAX
+            self.text.append("    push rax")  # save
+            for arg in reversed(expr.args):
+                self._eval_expr(arg)
+                self.text.append("    push rax")
+            self.text.append("    pop rax")   # restore func addr into RAX
+            self.text.append("    call rax")  # indirect call
+            self.text.append(f"    add rsp, {len(expr.args)*8}")
+
