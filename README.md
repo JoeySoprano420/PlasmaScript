@@ -2038,4 +2038,5 @@ The **PlasmaScript Handbook** provides:
 * A roadmap for **games, HPC, finance, embedded, and creative arts**.
 
 ---
-
+Reference Manual can be found at the link below:
+https://github.com/JoeySoprano420/PlasmaScript/edit/main/docs/FormingPrograms.md
