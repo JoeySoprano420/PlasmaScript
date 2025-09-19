@@ -221,3 +221,32 @@ class LLVMBackend:
         self.builder.store(env_ptr, self.builder.gep(closure, [ir.Constant(ir.IntType(32), 0), ir.Constant(ir.IntType(32), 1)]))
         return closure
 
+class LLVMBackend:
+    def _declare_runtime(self):
+        # malloc/free
+        malloc_ty = ir.FunctionType(ir.IntType(8).as_pointer(), [ir.IntType(64)])
+        self.malloc = ir.Function(self.module, malloc_ty, name="malloc")
+        free_ty = ir.FunctionType(ir.VoidType(), [ir.IntType(8).as_pointer()])
+        self.free = ir.Function(self.module, free_ty, name="free")
+
+    def _eval_expr(self, expr):
+        if isinstance(expr, MallocNode):
+            size = self._eval_expr(expr.size)
+            return self.builder.call(self.malloc, [self.builder.sext(size, ir.IntType(64))])
+        elif isinstance(expr, FreeNode):
+            ptr = self._eval_expr(expr.ptr)
+            self.builder.call(self.free, [ptr])
+            return ir.Constant(ir.IntType(32), 0)
+        elif isinstance(expr, StoreNode):
+            ptr = self._eval_expr(expr.ptr)
+            offset = self._eval_expr(expr.offset)
+            addr = self.builder.gep(ptr, [offset])
+            val = self._eval_expr(expr.value)
+            self.builder.store(val, addr)
+            return ir.Constant(ir.IntType(32), 0)
+        elif isinstance(expr, LoadNode):
+            ptr = self._eval_expr(expr.ptr)
+            offset = self._eval_expr(expr.offset)
+            addr = self.builder.gep(ptr, [offset])
+            return self.builder.load(addr)
+
