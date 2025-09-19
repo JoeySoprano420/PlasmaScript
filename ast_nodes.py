@@ -34,3 +34,14 @@ class CallNode:
         self.name = name
         self.args = args  # list of expressions
 
+class FuncNode:
+    def __init__(self, name, params, body, export=False):
+        self.name, self.params, self.body, self.export = name, params, body, export
+
+class CallNode:
+    def __init__(self, func, args):
+        self.func, self.args = func, args   # func can be VarNode or FuncNode reference
+
+class ReturnNode:
+    def __init__(self, expr): self.expr = expr
+
