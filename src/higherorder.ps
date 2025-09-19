@@ -1,0 +1,19 @@
+Export Func add(a: number, b: number) { return a + b }
+Export Func mul(a: number, b: number) { return a * b }
+
+Export Func chooser(x: number) {
+    if x == 0 {
+        return add
+    } else {
+        return mul
+    }
+}
+
+Prog main() {
+    let f = chooser(0)
+    Print [f(2, 3)]    ; 5
+
+    let g = chooser(1)
+    Print [g(2, 3)]    ; 6
+}
+end
