@@ -1,0 +1,9 @@
+Export Func add(a: number, b: number) { return a + b }
+Export Func sub(a: number, b: number) { return a - b }
+Export Func mul(a: number, b: number) { return a * b }
+
+Prog main() {
+    Print [add(add(2, 3), 4)]          ; prints 9
+    Print [mul(add(2, 3), sub(10, 4))] ; prints 30
+}
+end
