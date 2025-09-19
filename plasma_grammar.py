@@ -172,3 +172,14 @@ NUMBER: /\d+/
 
 lambda_expr: "Func" "(" [params] ")" block
 
+malloc_call: "malloc" "(" expr ")"
+free_call:   "free" "(" expr ")"
+store_call:  "store" "(" expr "," expr "," expr ")"
+load_call:   "load" "(" expr "," expr ")"
+
+?expr: ... 
+     | malloc_call   -> malloc_expr
+     | free_call     -> free_expr
+     | store_call    -> store_expr
+     | load_call     -> load_expr
+
