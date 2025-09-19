@@ -11,3 +11,13 @@ class ExportFuncNode:
 
 class InlineDgmNode:
     def __init__(self, codes): self.codes = codes
+
+class NumberNode: 
+    def __init__(self, value): self.value = int(value)
+class StringNode:
+    def __init__(self, value): self.value = str(value).strip('"')
+class VarNode:
+    def __init__(self, name): self.name = name
+class BinOpNode:
+    def __init__(self, left, op, right): self.left, self.op, self.right = left, op, right
+
