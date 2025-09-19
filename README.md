@@ -615,8 +615,6 @@ It is the language for the engineer, the researcher, and the artist — born to 
 
 # 🚀 PlasmaScript AOT Compiler Design
 
-Here’s the blueprint to take PlasmaScript from VM → real `.exe` output:
-
 ---
 
 ## 1. **Frontend (Parsing + IR)**
