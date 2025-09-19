@@ -108,3 +108,16 @@ class NASMBackend:
             self.text.append("    call rax")  # indirect call
             self.text.append(f"    add rsp, {len(expr.args)*8}")
 
+class NASMBackend:
+    def _eval_expr(self, expr):
+        if isinstance(expr, LambdaNode):
+            # emit an anonymous function
+            label = f"lambda_{id(expr)}"
+            self.globals.add(label)
+            self.text.append(f"{label}:")
+            for stmt in expr.body.children:
+                if isinstance(stmt, ReturnNode):
+                    self._eval_expr(stmt.expr)
+                    self.text.append("    ret")
+            return label
+
