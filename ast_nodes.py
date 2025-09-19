@@ -65,3 +65,13 @@ class StoreNode:
 class LoadNode:
     def __init__(self, ptr, offset): self.ptr, self.offset = ptr, offset
 
+class ArenaInitNode: pass
+class ArenaAllocNode: pass
+class ArenaResetNode: pass
+class RcAllocNode: pass
+class RetainNode: pass
+class ReleaseNode: pass
+class BumpInitNode: pass
+class BumpAllocNode: pass
+class BumpResetNode: pass
+
