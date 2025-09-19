@@ -1,0 +1,3297 @@
+; PlasmaScript Compiler (self-hosted)
+; Reads .ps → outputs LLVM IR or NASM
+; Author: PlasmaScript Project
+
+Import "io"
+Import "string"
+Import "list"
+
+; --------------------------
+; Lexer
+; --------------------------
+
+Func tokenize(source: text) {
+    let tokens = []
+    let current = ""
+    for ch in source {
+        if ch == " " or ch == "\n" {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+        } else if ch in ["{","}","(",")","[","]"] {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+            tokens.append(ch)
+        } else {
+            current = current + ch
+        }
+    }
+    if current != "" { tokens.append(current) }
+    return tokens
+}
+
+; --------------------------
+; Parser
+; --------------------------
+
+Func parse(tokens: list) {
+    let ast = []
+    let i = 0
+    while i < len(tokens) {
+        let tok = tokens[i]
+
+        if tok == "Prog" or tok == "Main" {
+            ast.append({type: "ProgramStart"})
+        } else if tok == "end" or tok == "run" {
+            ast.append({type: "ProgramEnd"})
+        } else if tok == "Print" {
+            i = i + 1
+            let value = tokens[i]
+            ast.append({type: "Print", value: value})
+        } else if tok == "Func" {
+            i = i + 1
+            let name = tokens[i]
+            ast.append({type: "FunctionDecl", name: name})
+        } else {
+            ast.append({type: "Identifier", value: tok})
+        }
+
+        i = i + 1
+    }
+    return ast
+}
+
+; --------------------------
+; Codegen (LLVM IR backend)
+; --------------------------
+
+Func codegen_llvm(ast: list) {
+    let ir = ""
+    ir = ir + "declare i32 @puts(i8*)\n"
+    ir = ir + "define i32 @main() {\n"
+
+    for node in ast {
+        if node.type == "Print" {
+            ir = ir + "  call i32 @puts(i8* c\"" + node.value + "\\00\")\n"
+        }
+    }
+
+    ir = ir + "  ret i32 0\n"
+    ir = ir + "}\n"
+    return ir
+}
+
+; --------------------------
+; Codegen (NASM backend)
+; --------------------------
+
+Func codegen_nasm(ast: list) {
+    let asm = "section .data\n"
+    let text_count = 0
+
+    for node in ast {
+        if node.type == "Print" {
+            asm = asm + "msg" + text_count + ": db \"" + node.value + "\",0\n"
+            text_count = text_count + 1
+        }
+    }
+
+    asm = asm + "section .text\n"
+    asm = asm + "global _start\n"
+    asm = asm + "_start:\n"
+
+    text_count = 0
+    for node in ast {
+        if node.type == "Print" {
+            asm = asm + "  mov rax, 1\n"
+            asm = asm + "  mov rdi, 1\n"
+            asm = asm + "  mov rsi, msg" + text_count + "\n"
+            asm = asm + "  mov rdx, " + len(node.value) + "\n"
+            asm = asm + "  syscall\n"
+            text_count = text_count + 1
+        }
+    }
+
+    asm = asm + "  mov rax, 60\n"
+    asm = asm + "  xor rdi, rdi\n"
+    asm = asm + "  syscall\n"
+
+    return asm
+}
+
+; --------------------------
+; Main Compiler Driver
+; --------------------------
+
+Prog main() {
+    let src = io.readFile("program.ps")
+    let tokens = tokenize(src)
+    let ast = parse(tokens)
+
+    let llvm = codegen_llvm(ast)
+    io.writeFile("program.ll", llvm)
+
+    let asm = codegen_nasm(ast)
+    io.writeFile("program.asm", asm)
+
+    Print ["Compiled program.ps → program.ll + program.asm"]
+}
+end
+
+; ============================================
+; PlasmaScript Compiler (self-hosted)
+; File: plasmascriptc.ps
+; Sections: LEXER, PARSER, CODEGEN, DRIVER
+; ============================================
+
+Import "io"
+Import "string"
+Import "list"
+
+; --------------------------------------------
+; LEXER (lexer.ps)
+; --------------------------------------------
+
+Func tokenize(source: text) {
+    let tokens = []
+    let current = ""
+
+    for ch in source {
+        if ch == " " or ch == "\n" or ch == "\t" {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+        } else if ch in ["{","}","(",")","[","]","+","-","*","/","="] {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+            tokens.append(ch)
+        } else {
+            current = current + ch
+        }
+    }
+
+    if current != "" {
+        tokens.append(current)
+    }
+
+    return tokens
+}
+
+; --------------------------------------------
+; PARSER (parser.ps)
+; --------------------------------------------
+
+Func parse(tokens: list) {
+    let ast = []
+    let i = 0
+
+    while i < len(tokens) {
+        let tok = tokens[i]
+
+        if tok == "Prog" or tok == "Main" {
+            ast.append({type: "ProgramStart"})
+        } else if tok == "end" or tok == "run" {
+            ast.append({type: "ProgramEnd"})
+        } else if tok == "Print" {
+            i = i + 1
+            let value = tokens[i]
+            ast.append({type: "Print", value: value})
+        } else if tok == "Func" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 1 ; skip "("
+            let args = []
+            while tokens[i] != ")" {
+                args.append(tokens[i])
+                i = i + 1
+            }
+            ast.append({type: "FunctionDecl", name: name, args: args})
+        } else if tok == "return" {
+            i = i + 1
+            ast.append({type: "Return", value: tokens[i]})
+        } else {
+            ast.append({type: "Identifier", value: tok})
+        }
+
+        i = i + 1
+    }
+
+    return ast
+}
+
+; --------------------------------------------
+; CODEGEN (codegen.ps)
+; Two backends: LLVM IR + NASM
+; --------------------------------------------
+
+Func codegen_llvm(ast: list) {
+    let ir = ""
+    ir = ir + "declare i32 @puts(i8*)\n"
+    ir = ir + "define i32 @main() {\n"
+
+    for node in ast {
+        if node.type == "Print" {
+            ir = ir + "  call i32 @puts(i8* c\"" + node.value + "\\00\")\n"
+        }
+    }
+
+    ir = ir + "  ret i32 0\n"
+    ir = ir + "}\n"
+    return ir
+}
+
+Func codegen_nasm(ast: list) {
+    let asm = "section .data\n"
+    let text_count = 0
+
+    for node in ast {
+        if node.type == "Print" {
+            asm = asm + "msg" + text_count + ": db \"" + node.value + "\",0\n"
+            text_count = text_count + 1
+        }
+    }
+
+    asm = asm + "section .text\n"
+    asm = asm + "global _start\n"
+    asm = asm + "_start:\n"
+
+    text_count = 0
+    for node in ast {
+        if node.type == "Print" {
+            asm = asm + "  mov rax, 1\n"
+            asm = asm + "  mov rdi, 1\n"
+            asm = asm + "  mov rsi, msg" + text_count + "\n"
+            asm = asm + "  mov rdx, " + len(node.value) + "\n"
+            asm = asm + "  syscall\n"
+            text_count = text_count + 1
+        }
+    }
+
+    asm = asm + "  mov rax, 60\n"
+    asm = asm + "  xor rdi, rdi\n"
+    asm = asm + "  syscall\n"
+
+    return asm
+}
+
+; --------------------------------------------
+; DRIVER (driver.ps)
+; --------------------------------------------
+
+Prog main() {
+    ; Step 1: Read source file
+    let src = io.readFile("program.ps")
+
+    ; Step 2: Lexical analysis
+    let tokens = tokenize(src)
+    Print ["[Lexer] Tokens: " + tokens]
+
+    ; Step 3: Parse to AST
+    let ast = parse(tokens)
+    Print ["[Parser] AST built"]
+
+    ; Step 4: Generate LLVM IR
+    let llvm = codegen_llvm(ast)
+    io.writeFile("program.ll", llvm)
+
+    ; Step 5: Generate NASM assembly
+    let asm = codegen_nasm(ast)
+    io.writeFile("program.asm", asm)
+
+    Print ["[Codegen] Wrote program.ll and program.asm"]
+}
+end
+
+; ============================================
+; PlasmaScript Compiler (self-hosted, bootstrap)
+; File: plasmascriptc.ps
+; Features: Lexer, Parser, AST, LLVM + NASM Codegen
+; Supports: Prog/Main, Print, Func/Return, If/Else, For Loops, Calls
+; ============================================
+
+Import "io"
+Import "string"
+Import "list"
+
+; --------------------------------------------
+; LEXER
+; --------------------------------------------
+
+Func tokenize(source: text) {
+    let tokens = []
+    let current = ""
+
+    for ch in source {
+        if ch == " " or ch == "\n" or ch == "\t" {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+        } else if ch in ["{","}","(",")","[","]","+","-","*","/","=","<",">",":"] {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+            tokens.append(ch)
+        } else {
+            current = current + ch
+        }
+    }
+
+    if current != "" {
+        tokens.append(current)
+    }
+
+    return tokens
+}
+
+; --------------------------------------------
+; PARSER
+; --------------------------------------------
+
+Func parse(tokens: list) {
+    let ast = []
+    let i = 0
+
+    while i < len(tokens) {
+        let tok = tokens[i]
+
+        ; Program Start/End
+        if tok == "Prog" or tok == "Main" {
+            ast.append({type: "ProgramStart"})
+        } else if tok == "end" or tok == "run" {
+            ast.append({type: "ProgramEnd"})
+
+        ; Print
+        } else if tok == "Print" {
+            i = i + 1
+            let value = tokens[i]
+            ast.append({type: "Print", value: value})
+
+        ; Function Definition
+        } else if tok == "Func" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 1 ; skip "("
+            let args = []
+            while tokens[i] != ")" {
+                args.append(tokens[i])
+                i = i + 1
+            }
+            ast.append({type: "FunctionDecl", name: name, args: args})
+
+        ; Return
+        } else if tok == "return" {
+            i = i + 1
+            ast.append({type: "Return", value: tokens[i]})
+
+        ; If/Else
+        } else if tok == "if" {
+            i = i + 1
+            let cond = tokens[i]
+            ast.append({type: "IfStart", cond: cond})
+        } else if tok == "else" {
+            ast.append({type: "Else"})
+        } else if tok == "}" {
+            ast.append({type: "BlockEnd"})
+
+        ; For Loops
+        } else if tok == "for" {
+            i = i + 1
+            let varname = tokens[i]
+            i = i + 1 ; expect "in"
+            i = i + 1
+            let iterable = tokens[i]
+            ast.append({type: "ForLoop", var: varname, iterable: iterable})
+
+        ; Function Call
+        } else if tok not in ["{", "}", "(", ")", "[", "]"] {
+            ; Assume bare identifier = function call possibility
+            if i+1 < len(tokens) and tokens[i+1] == "(" {
+                let callname = tok
+                i = i + 2
+                let args = []
+                while tokens[i] != ")" {
+                    args.append(tokens[i])
+                    i = i + 1
+                }
+                ast.append({type: "FunctionCall", name: callname, args: args})
+            } else {
+                ast.append({type: "Identifier", value: tok})
+            }
+        }
+
+        i = i + 1
+    }
+
+    return ast
+}
+
+; --------------------------------------------
+; CODEGEN (LLVM IR backend - simplified)
+; --------------------------------------------
+
+Func codegen_llvm(ast: list) {
+    let ir = ""
+    ir = ir + "declare i32 @puts(i8*)\n"
+    ir = ir + "define i32 @main() {\n"
+
+    for node in ast {
+        if node.type == "Print" {
+            ir = ir + "  call i32 @puts(i8* c\"" + node.value + "\\00\")\n"
+        } else if node.type == "IfStart" {
+            ir = ir + "  ; if " + node.cond + " (not fully lowered yet)\n"
+        } else if node.type == "Else" {
+            ir = ir + "  ; else branch\n"
+        } else if node.type == "ForLoop" {
+            ir = ir + "  ; for " + node.var + " in " + node.iterable + "\n"
+        } else if node.type == "FunctionDecl" {
+            ir = ir + "  ; define function " + node.name + "\n"
+        } else if node.type == "FunctionCall" {
+            ir = ir + "  ; call function " + node.name + "\n"
+        }
+    }
+
+    ir = ir + "  ret i32 0\n"
+    ir = ir + "}\n"
+    return ir
+}
+
+; --------------------------------------------
+; CODEGEN (NASM backend - simplified)
+; --------------------------------------------
+
+Func codegen_nasm(ast: list) {
+    let asm = "section .data\n"
+    let text_count = 0
+
+    for node in ast {
+        if node.type == "Print" {
+            asm = asm + "msg" + text_count + ": db \"" + node.value + "\",0\n"
+            text_count = text_count + 1
+        }
+    }
+
+    asm = asm + "section .text\n"
+    asm = asm + "global _start\n"
+    asm = asm + "_start:\n"
+
+    text_count = 0
+    for node in ast {
+        if node.type == "Print" {
+            asm = asm + "  mov rax, 1\n"
+            asm = asm + "  mov rdi, 1\n"
+            asm = asm + "  mov rsi, msg" + text_count + "\n"
+            asm = asm + "  mov rdx, " + len(node.value) + "\n"
+            asm = asm + "  syscall\n"
+            text_count = text_count + 1
+        } else if node.type == "IfStart" {
+            asm = asm + "  ; [if condition: " + node.cond + "]\n"
+        } else if node.type == "Else" {
+            asm = asm + "  ; [else branch]\n"
+        } else if node.type == "ForLoop" {
+            asm = asm + "  ; [for " + node.var + " in " + node.iterable + "]\n"
+        } else if node.type == "FunctionCall" {
+            asm = asm + "  ; [call " + node.name + "]\n"
+        }
+    }
+
+    asm = asm + "  mov rax, 60\n"
+    asm = asm + "  xor rdi, rdi\n"
+    asm = asm + "  syscall\n"
+
+    return asm
+}
+
+; --------------------------------------------
+; DRIVER
+; --------------------------------------------
+
+Prog main() {
+    ; Step 1: Read source file
+    let src = io.readFile("program.ps")
+
+    ; Step 2: Tokenize
+    let tokens = tokenize(src)
+    Print ["[Lexer] " + tokens]
+
+    ; Step 3: Parse
+    let ast = parse(tokens)
+    Print ["[Parser] AST built"]
+
+    ; Step 4: LLVM Codegen
+    let llvm = codegen_llvm(ast)
+    io.writeFile("program.ll", llvm)
+
+    ; Step 5: NASM Codegen
+    let asm = codegen_nasm(ast)
+    io.writeFile("program.asm", asm)
+
+    Print ["[Codegen] program.ll + program.asm generated"]
+}
+end
+
+; ============================================
+; PlasmaScript Compiler (bootstrap, extended)
+; Supports: Prog/Main, Print, Func/Return,
+; Variables, Arithmetic, If/Else, For Loops, Calls
+; Outputs: LLVM IR + NASM x64
+; ============================================
+
+Import "io"
+Import "string"
+Import "list"
+
+; --------------------------------------------
+; TOKENIZER
+; --------------------------------------------
+
+Func tokenize(source: text) {
+    let tokens = []
+    let current = ""
+
+    for ch in source {
+        if ch == " " or ch == "\n" or ch == "\t" {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+        } else if ch in ["{","}","(",")","[","]","+","-","*","/","=","<",">",":"] {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+            tokens.append(ch)
+        } else {
+            current = current + ch
+        }
+    }
+
+    if current != "" {
+        tokens.append(current)
+    }
+
+    return tokens
+}
+
+; --------------------------------------------
+; PARSER → builds AST
+; --------------------------------------------
+
+Func parse(tokens: list) {
+    let ast = []
+    let i = 0
+
+    while i < len(tokens) {
+        let tok = tokens[i]
+
+        ; Program Start/End
+        if tok == "Prog" or tok == "Main" {
+            ast.append({type: "ProgramStart"})
+        } else if tok == "end" or tok == "run" {
+            ast.append({type: "ProgramEnd"})
+
+        ; Print
+        } else if tok == "Print" {
+            i = i + 1
+            let value = tokens[i]
+            ast.append({type: "Print", value: value})
+
+        ; Variable assignment
+        } else if tok == "let" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 1 ; expect "="
+            i = i + 1
+            let value = tokens[i]
+            ast.append({type: "Assign", name: name, value: value})
+
+        ; Arithmetic expression (simple binary)
+        } else if tok in ["+","-","*","/"] {
+            let op = tok
+            let left = tokens[i-1]
+            let right = tokens[i+1]
+            ast.append({type: "BinaryOp", op: op, left: left, right: right})
+
+        ; If/Else
+        } else if tok == "if" {
+            i = i + 1
+            let cond = tokens[i]
+            ast.append({type: "IfStart", cond: cond})
+        } else if tok == "else" {
+            ast.append({type: "Else"})
+        } else if tok == "}" {
+            ast.append({type: "BlockEnd"})
+
+        ; For Loops
+        } else if tok == "for" {
+            i = i + 1
+            let varname = tokens[i]
+            i = i + 2 ; skip "in"
+            let iterable = tokens[i]
+            ast.append({type: "ForLoop", var: varname, iterable: iterable})
+
+        ; Functions
+        } else if tok == "Func" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 1 ; skip "("
+            let args = []
+            while tokens[i] != ")" {
+                args.append(tokens[i])
+                i = i + 1
+            }
+            ast.append({type: "FunctionDecl", name: name, args: args})
+
+        } else if tok == "return" {
+            i = i + 1
+            ast.append({type: "Return", value: tokens[i]})
+
+        ; Function call
+        } else if tok not in ["{", "}", "(", ")", "[", "]"] {
+            if i+1 < len(tokens) and tokens[i+1] == "(" {
+                let callname = tok
+                i = i + 2
+                let args = []
+                while tokens[i] != ")" {
+                    args.append(tokens[i])
+                    i = i + 1
+                }
+                ast.append({type: "FunctionCall", name: callname, args: args})
+            }
+        }
+
+        i = i + 1
+    }
+
+    return ast
+}
+
+; --------------------------------------------
+; CODEGEN LLVM
+; --------------------------------------------
+
+Func codegen_llvm(ast: list) {
+    let ir = ""
+    ir = ir + "declare i32 @puts(i8*)\n"
+    ir = ir + "define i32 @main() {\n"
+
+    let if_count = 0
+    let loop_count = 0
+
+    for node in ast {
+        if node.type == "Print" {
+            ir = ir + "  call i32 @puts(i8* c\"" + node.value + "\\00\")\n"
+
+        } else if node.type == "Assign" {
+            ir = ir + "  ; assign " + node.name + " = " + node.value + "\n"
+
+        } else if node.type == "BinaryOp" {
+            ir = ir + "  ; " + node.left + " " + node.op + " " + node.right + "\n"
+
+        } else if node.type == "IfStart" {
+            if_count = if_count + 1
+            let id = if_count
+            ir = ir + "  ; if " + node.cond + "\n"
+            ir = ir + "  br i1 %cond" + id + ", label %if" + id + ", label %else" + id + "\n"
+            ir = ir + "if" + id + ":\n"
+
+        } else if node.type == "Else" {
+            ir = ir + "  br label %endif\n"
+            ir = ir + "else" + if_count + ":\n"
+
+        } else if node.type == "BlockEnd" {
+            ir = ir + "  br label %endif\n"
+            ir = ir + "endif:\n"
+
+        } else if node.type == "ForLoop" {
+            loop_count = loop_count + 1
+            let lid = loop_count
+            ir = ir + "  br label %loop" + lid + "\n"
+            ir = ir + "loop" + lid + ":\n"
+            ir = ir + "  ; iterating " + node.var + " over " + node.iterable + "\n"
+
+        } else if node.type == "FunctionCall" {
+            ir = ir + "  ; call " + node.name + "(" + node.args + ")\n"
+        }
+    }
+
+    ir = ir + "  ret i32 0\n"
+    ir = ir + "}\n"
+    return ir
+}
+
+; --------------------------------------------
+; CODEGEN NASM
+; --------------------------------------------
+
+Func codegen_nasm(ast: list) {
+    let asm = "section .data\n"
+    let text_count = 0
+
+    for node in ast {
+        if node.type == "Print" {
+            asm = asm + "msg" + text_count + ": db \"" + node.value + "\",0\n"
+            text_count = text_count + 1
+        }
+    }
+
+    asm = asm + "section .text\n"
+    asm = asm + "global _start\n"
+    asm = asm + "_start:\n"
+
+    let if_count = 0
+    let loop_count = 0
+    text_count = 0
+
+    for node in ast {
+        if node.type == "Print" {
+            asm = asm + "  mov rax, 1\n"
+            asm = asm + "  mov rdi, 1\n"
+            asm = asm + "  mov rsi, msg" + text_count + "\n"
+            asm = asm + "  mov rdx, " + len(node.value) + "\n"
+            asm = asm + "  syscall\n"
+            text_count = text_count + 1
+
+        } else if node.type == "Assign" {
+            asm = asm + "  ; assign " + node.name + " = " + node.value + "\n"
+
+        } else if node.type == "BinaryOp" {
+            asm = asm + "  ; " + node.left + " " + node.op + " " + node.right + "\n"
+
+        } else if node.type == "IfStart" {
+            if_count = if_count + 1
+            let id = if_count
+            asm = asm + "  ; if " + node.cond + "\n"
+            asm = asm + "  cmp rax, 0\n"
+            asm = asm + "  je else" + id + "\n"
+
+        } else if node.type == "Else" {
+            asm = asm + "  jmp endif\n"
+            asm = asm + "else" + if_count + ":\n"
+
+        } else if node.type == "BlockEnd" {
+            asm = asm + "endif:\n"
+
+        } else if node.type == "ForLoop" {
+            loop_count = loop_count + 1
+            let lid = loop_count
+            asm = asm + "loop" + lid + ":\n"
+            asm = asm + "  ; for " + node.var + " in " + node.iterable + "\n"
+            asm = asm + "  ; loop body...\n"
+            asm = asm + "  jmp loop" + lid + "\n"
+        }
+    }
+
+    asm = asm + "  mov rax, 60\n"
+    asm = asm + "  xor rdi, rdi\n"
+    asm = asm + "  syscall\n"
+
+    return asm
+}
+
+; --------------------------------------------
+; DRIVER
+; --------------------------------------------
+
+Prog main() {
+    let src = io.readFile("program.ps")
+
+    let tokens = tokenize(src)
+    Print ["[Lexer] " + tokens]
+
+    let ast = parse(tokens)
+    Print ["[Parser] AST built"]
+
+    let llvm = codegen_llvm(ast)
+    io.writeFile("program.ll", llvm)
+
+    let asm = codegen_nasm(ast)
+    io.writeFile("program.asm", asm)
+
+    Print ["[Codegen] Wrote program.ll + program.asm"]
+}
+end
+
+; ============================================
+; PlasmaScript Compiler (self-hosted, bootstrap)
+; File: plasmascriptc.ps
+; New Features: Real variable lowering, arithmetic, 
+; function calls, and returns in LLVM + NASM.
+; ============================================
+
+Import "io"
+Import "string"
+Import "list"
+
+; --------------------------------------------
+; TOKENIZER
+; --------------------------------------------
+
+Func tokenize(source: text) {
+    let tokens = []
+    let current = ""
+
+    for ch in source {
+        if ch == " " or ch == "\n" or ch == "\t" {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+        } else if ch in ["{","}","(",")","[","]","+","-","*","/","=","<",">",":",","] {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+            tokens.append(ch)
+        } else {
+            current = current + ch
+        }
+    }
+
+    if current != "" {
+        tokens.append(current)
+    }
+
+    return tokens
+}
+
+; --------------------------------------------
+; PARSER → builds AST
+; --------------------------------------------
+
+Func parse(tokens: list) {
+    let ast = []
+    let i = 0
+
+    while i < len(tokens) {
+        let tok = tokens[i]
+
+        ; Program Start/End
+        if tok == "Prog" or tok == "Main" {
+            ast.append({type: "ProgramStart"})
+        } else if tok == "end" or tok == "run" {
+            ast.append({type: "ProgramEnd"})
+
+        ; Print
+        } else if tok == "Print" {
+            i = i + 1
+            let value = tokens[i]
+            ast.append({type: "Print", value: value})
+
+        ; Variable assignment
+        } else if tok == "let" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 1 ; expect "="
+            i = i + 1
+            let value = tokens[i]
+            ast.append({type: "Assign", name: name, value: value})
+
+        ; Arithmetic expression (binary op)
+        } else if tok in ["+","-","*","/"] {
+            let op = tok
+            let left = tokens[i-1]
+            let right = tokens[i+1]
+            ast.append({type: "BinaryOp", op: op, left: left, right: right})
+
+        ; Functions
+        } else if tok == "Func" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 1 ; skip "("
+            let args = []
+            while tokens[i] != ")" {
+                args.append(tokens[i])
+                i = i + 1
+            }
+            ast.append({type: "FunctionDecl", name: name, args: args})
+
+        } else if tok == "return" {
+            i = i + 1
+            ast.append({type: "Return", value: tokens[i]})
+
+        ; Function call
+        } else if tok not in ["{", "}", "(", ")", "[", "]"] {
+            if i+1 < len(tokens) and tokens[i+1] == "(" {
+                let callname = tok
+                i = i + 2
+                let args = []
+                while tokens[i] != ")" {
+                    args.append(tokens[i])
+                    i = i + 1
+                }
+                ast.append({type: "FunctionCall", name: callname, args: args})
+            }
+        }
+
+        i = i + 1
+    }
+
+    return ast
+}
+
+; --------------------------------------------
+; CODEGEN LLVM (real lowering)
+; --------------------------------------------
+
+Func codegen_llvm(ast: list) {
+    let ir = ""
+    ir = ir + "declare i32 @puts(i8*)\n"
+    ir = ir + "define i32 @main() {\n"
+
+    let tempCount = 0
+    let varmap = {}
+
+    for node in ast {
+        if node.type == "Print" {
+            ir = ir + "  call i32 @puts(i8* c\"" + node.value + "\\00\")\n"
+
+        } else if node.type == "Assign" {
+            tempCount = tempCount + 1
+            let name = node.name
+            varmap[name] = "%var" + tempCount
+            ir = ir + "  " + varmap[name] + " = alloca i32\n"
+            ir = ir + "  store i32 " + node.value + ", i32* " + varmap[name] + "\n"
+
+        } else if node.type == "BinaryOp" {
+            tempCount = tempCount + 1
+            let res = "%t" + tempCount
+            ir = ir + "  " + res + " = add i32 " + node.left + ", " + node.right + "\n"
+
+        } else if node.type == "FunctionDecl" {
+            ir = ir + "define i32 @" + node.name + "("
+            let args = []
+            for a in node.args {
+                args.append("i32 %" + a)
+            }
+            ir = ir + string.join(args, ", ") + ") {\n"
+
+        } else if node.type == "Return" {
+            ir = ir + "  ret i32 " + node.value + "\n"
+            ir = ir + "}\n"
+
+        } else if node.type == "FunctionCall" {
+            ir = ir + "  call i32 @" + node.name + "("
+            let args = []
+            for a in node.args {
+                args.append("i32 " + a)
+            }
+            ir = ir + string.join(args, ", ") + ")\n"
+        }
+    }
+
+    ir = ir + "  ret i32 0\n"
+    ir = ir + "}\n"
+    return ir
+}
+
+; --------------------------------------------
+; CODEGEN NASM (real lowering)
+; --------------------------------------------
+
+Func codegen_nasm(ast: list) {
+    let asm = "section .data\n"
+    let text_count = 0
+
+    for node in ast {
+        if node.type == "Print" {
+            asm = asm + "msg" + text_count + ": db \"" + node.value + "\",0\n"
+            text_count = text_count + 1
+        }
+    }
+
+    asm = asm + "section .text\n"
+    asm = asm + "global _start\n"
+    asm = asm + "_start:\n"
+
+    let varmap = {}
+    let varcount = 0
+
+    for node in ast {
+        if node.type == "Print" {
+            asm = asm + "  mov rax, 1\n"
+            asm = asm + "  mov rdi, 1\n"
+            asm = asm + "  mov rsi, msg0\n"
+            asm = asm + "  mov rdx, " + len(node.value) + "\n"
+            asm = asm + "  syscall\n"
+
+        } else if node.type == "Assign" {
+            varcount = varcount + 1
+            varmap[node.name] = "qword [rbp-" + (8*varcount) + "]"
+            asm = asm + "  mov " + varmap[node.name] + ", " + node.value + "\n"
+
+        } else if node.type == "BinaryOp" {
+            asm = asm + "  mov rax, " + node.left + "\n"
+            if node.op == "+" {
+                asm = asm + "  add rax, " + node.right + "\n"
+            } else if node.op == "-" {
+                asm = asm + "  sub rax, " + node.right + "\n"
+            } else if node.op == "*" {
+                asm = asm + "  imul rax, " + node.right + "\n"
+            } else if node.op == "/" {
+                asm = asm + "  xor rdx, rdx\n"
+                asm = asm + "  mov rbx, " + node.right + "\n"
+                asm = asm + "  idiv rbx\n"
+            }
+        } else if node.type == "FunctionDecl" {
+            asm = asm + node.name + ":\n"
+            asm = asm + "  push rbp\n"
+            asm = asm + "  mov rbp, rsp\n"
+
+        } else if node.type == "Return" {
+            asm = asm + "  mov rax, " + node.value + "\n"
+            asm = asm + "  mov rsp, rbp\n"
+            asm = asm + "  pop rbp\n"
+            asm = asm + "  ret\n"
+
+        } else if node.type == "FunctionCall" {
+            ; Pass args in registers (SysV ABI simplified)
+            if len(node.args) > 0 {
+                asm = asm + "  mov rdi, " + node.args[0] + "\n"
+            }
+            asm = asm + "  call " + node.name + "\n"
+        }
+    }
+
+    asm = asm + "  mov rax, 60\n"
+    asm = asm + "  xor rdi, rdi\n"
+    asm = asm + "  syscall\n"
+
+    return asm
+}
+
+; --------------------------------------------
+; DRIVER
+; --------------------------------------------
+
+Prog main() {
+    let src = io.readFile("program.ps")
+
+    let tokens = tokenize(src)
+    Print ["[Lexer] " + tokens]
+
+    let ast = parse(tokens)
+    Print ["[Parser] AST built"]
+
+    let llvm = codegen_llvm(ast)
+    io.writeFile("program.ll", llvm)
+
+    let asm = codegen_nasm(ast)
+    io.writeFile("program.asm", asm)
+
+    Print ["[Codegen] program.ll + program.asm written"]
+}
+end
+
+; ============================================
+; PlasmaScript Compiler (bootstrap, extended)
+; File: plasmascriptc.ps
+; Features: variables, arithmetic, functions,
+; if/else branching, loops, symbol tables
+; Outputs: LLVM IR + NASM
+; ============================================
+
+Import "io"
+Import "string"
+Import "list"
+
+; --------------------------------------------
+; TOKENIZER
+; --------------------------------------------
+
+Func tokenize(source: text) {
+    let tokens = []
+    let current = ""
+
+    for ch in source {
+        if ch == " " or ch == "\n" or ch == "\t" {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+        } else if ch in ["{","}","(",")","[","]","+","-","*","/","=","<",">",":",","] {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+            tokens.append(ch)
+        } else {
+            current = current + ch
+        }
+    }
+
+    if current != "" {
+        tokens.append(current)
+    }
+
+    return tokens
+}
+
+; --------------------------------------------
+; PARSER
+; --------------------------------------------
+
+Func parse(tokens: list) {
+    let ast = []
+    let i = 0
+
+    while i < len(tokens) {
+        let tok = tokens[i]
+
+        if tok == "Prog" or tok == "Main" {
+            ast.append({type: "ProgramStart"})
+        } else if tok == "end" or tok == "run" {
+            ast.append({type: "ProgramEnd"})
+
+        ; Variable declaration
+        } else if tok == "let" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 2 ; skip "="
+            let value = tokens[i]
+            ast.append({type: "Assign", name: name, value: value})
+
+        ; Arithmetic op
+        } else if tok in ["+","-","*","/"] {
+            ast.append({type: "BinaryOp", op: tok, left: tokens[i-1], right: tokens[i+1]})
+
+        ; Print
+        } else if tok == "Print" {
+            i = i + 1
+            let val = tokens[i]
+            ast.append({type: "Print", value: val})
+
+        ; If/Else
+        } else if tok == "if" {
+            i = i + 1
+            let cond = tokens[i]
+            ast.append({type: "IfStart", cond: cond})
+        } else if tok == "else" {
+            ast.append({type: "Else"})
+        } else if tok == "}" {
+            ast.append({type: "BlockEnd"})
+
+        ; For Loop
+        } else if tok == "for" {
+            i = i + 1
+            let varname = tokens[i]
+            i = i + 2 ; skip "in"
+            let iterable = tokens[i]
+            ast.append({type: "ForLoop", var: varname, iterable: iterable})
+
+        ; Function Decl
+        } else if tok == "Func" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 1
+            let args = []
+            while tokens[i] != ")" {
+                args.append(tokens[i])
+                i = i + 1
+            }
+            ast.append({type: "FunctionDecl", name: name, args: args})
+
+        ; Return
+        } else if tok == "return" {
+            i = i + 1
+            ast.append({type: "Return", value: tokens[i]})
+
+        ; Function Call
+        } else if tok not in ["{","}","(",")","[","]"] {
+            if i+1 < len(tokens) and tokens[i+1] == "(" {
+                let callname = tok
+                i = i + 2
+                let args = []
+                while tokens[i] != ")" {
+                    args.append(tokens[i])
+                    i = i + 1
+                }
+                ast.append({type: "FunctionCall", name: callname, args: args})
+            }
+        }
+
+        i = i + 1
+    }
+
+    return ast
+}
+
+; --------------------------------------------
+; LLVM CODEGEN
+; --------------------------------------------
+
+Func codegen_llvm(ast: list) {
+    let ir = ""
+    ir = ir + "declare i32 @puts(i8*)\n"
+    ir = ir + "define i32 @main() {\n"
+
+    let varmap = {}
+    let temp = 0
+    let ifcount = 0
+    let loopcount = 0
+
+    for node in ast {
+        if node.type == "Assign" {
+            temp = temp + 1
+            varmap[node.name] = "%var" + temp
+            ir = ir + "  " + varmap[node.name] + " = alloca i32\n"
+            ir = ir + "  store i32 " + node.value + ", i32* " + varmap[node.name] + "\n"
+
+        } else if node.type == "BinaryOp" {
+            temp = temp + 1
+            let res = "%t" + temp
+            if node.op == "+" {
+                ir = ir + "  " + res + " = add i32 " + node.left + ", " + node.right + "\n"
+            }
+            ; More ops: sub, mul, div...
+
+        } else if node.type == "Print" {
+            ir = ir + "  call i32 @puts(i8* c\"" + node.value + "\\00\")\n"
+
+        } else if node.type == "IfStart" {
+            ifcount = ifcount + 1
+            ir = ir + "  %cond" + ifcount + " = icmp ne i32 " + node.cond + ", 0\n"
+            ir = ir + "  br i1 %cond" + ifcount + ", label %if" + ifcount + ", label %else" + ifcount + "\n"
+            ir = ir + "if" + ifcount + ":\n"
+
+        } else if node.type == "Else" {
+            ir = ir + "  br label %endif" + ifcount + "\n"
+            ir = ir + "else" + ifcount + ":\n"
+
+        } else if node.type == "BlockEnd" {
+            ir = ir + "  br label %endif" + ifcount + "\n"
+            ir = ir + "endif" + ifcount + ":\n"
+
+        } else if node.type == "ForLoop" {
+            loopcount = loopcount + 1
+            let lid = loopcount
+            ir = ir + "  br label %loop" + lid + "\n"
+            ir = ir + "loop" + lid + ":\n"
+            ir = ir + "  ; for " + node.var + " in " + node.iterable + "\n"
+            ir = ir + "  br label %loop" + lid + "\n"
+        }
+    }
+
+    ir = ir + "  ret i32 0\n}\n"
+    return ir
+}
+
+; --------------------------------------------
+; NASM CODEGEN
+; --------------------------------------------
+
+Func codegen_nasm(ast: list) {
+    let asm = "section .data\n"
+    let text_count = 0
+    let varmap = {}
+    let varoff = 0
+    let ifcount = 0
+    let loopcount = 0
+
+    for node in ast {
+        if node.type == "Print" {
+            asm = asm + "msg" + text_count + ": db \"" + node.value + "\",0\n"
+            text_count = text_count + 1
+        }
+    }
+
+    asm = asm + "section .text\n"
+    asm = asm + "global _start\n"
+    asm = asm + "_start:\n"
+    asm = asm + "  push rbp\n"
+    asm = asm + "  mov rbp, rsp\n"
+
+    for node in ast {
+        if node.type == "Assign" {
+            varoff = varoff + 8
+            varmap[node.name] = "[rbp-" + varoff + "]"
+            asm = asm + "  mov qword " + varmap[node.name] + ", " + node.value + "\n"
+
+        } else if node.type == "BinaryOp" {
+            asm = asm + "  mov rax, " + node.left + "\n"
+            if node.op == "+" {
+                asm = asm + "  add rax, " + node.right + "\n"
+            } else if node.op == "-" {
+                asm = asm + "  sub rax, " + node.right + "\n"
+            }
+
+        } else if node.type == "Print" {
+            asm = asm + "  mov rax, 1\n"
+            asm = asm + "  mov rdi, 1\n"
+            asm = asm + "  mov rsi, msg0\n"
+            asm = asm + "  mov rdx, " + len(node.value) + "\n"
+            asm = asm + "  syscall\n"
+
+        } else if node.type == "IfStart" {
+            ifcount = ifcount + 1
+            asm = asm + "  cmp " + node.cond + ", 0\n"
+            asm = asm + "  je else" + ifcount + "\n"
+
+        } else if node.type == "Else" {
+            asm = asm + "  jmp endif" + ifcount + "\n"
+            asm = asm + "else" + ifcount + ":\n"
+
+        } else if node.type == "BlockEnd" {
+            asm = asm + "endif" + ifcount + ":\n"
+
+        } else if node.type == "ForLoop" {
+            loopcount = loopcount + 1
+            let lid = loopcount
+            asm = asm + "loop" + lid + ":\n"
+            asm = asm + "  ; loop over " + node.iterable + "\n"
+            asm = asm + "  jmp loop" + lid + "\n"
+        }
+    }
+
+    asm = asm + "  mov rsp, rbp\n"
+    asm = asm + "  pop rbp\n"
+    asm = asm + "  mov rax, 60\n"
+    asm = asm + "  xor rdi, rdi\n"
+    asm = asm + "  syscall\n"
+
+    return asm
+}
+
+; --------------------------------------------
+; DRIVER
+; --------------------------------------------
+
+Prog main() {
+    let src = io.readFile("program.ps")
+
+    let tokens = tokenize(src)
+    Print ["[Lexer] " + tokens]
+
+    let ast = parse(tokens)
+    Print ["[Parser] AST built"]
+
+    let llvm = codegen_llvm(ast)
+    io.writeFile("program.ll", llvm)
+
+    let asm = codegen_nasm(ast)
+    io.writeFile("program.asm", asm)
+
+    Print ["[Codegen] program.ll + program.asm written"]
+}
+end
+
+; ============================================
+; PlasmaScript Compiler (bootstrap core)
+; Features: variables, arithmetic, if/else,
+; for-loops with counters, function calls
+; and returns with stack frames
+; Backends: LLVM IR + NASM x64
+; ============================================
+
+Import "io"
+Import "string"
+Import "list"
+
+; --------------------------------------------
+; TOKENIZER
+; --------------------------------------------
+
+Func tokenize(source: text) {
+    let tokens = []
+    let current = ""
+
+    for ch in source {
+        if ch == " " or ch == "\n" or ch == "\t" {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+        } else if ch in ["{","}","(",")","[","]","+","-","*","/","=","<",">",":",".",","] {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+            tokens.append(ch)
+        } else {
+            current = current + ch
+        }
+    }
+
+    if current != "" {
+        tokens.append(current)
+    }
+
+    return tokens
+}
+
+; --------------------------------------------
+; PARSER
+; --------------------------------------------
+
+Func parse(tokens: list) {
+    let ast = []
+    let i = 0
+
+    while i < len(tokens) {
+        let tok = tokens[i]
+
+        if tok == "Prog" or tok == "Main" {
+            ast.append({type: "ProgramStart"})
+
+        } else if tok == "end" or tok == "run" {
+            ast.append({type: "ProgramEnd"})
+
+        ; Variable assign
+        } else if tok == "let" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 2
+            let value = tokens[i]
+            ast.append({type: "Assign", name: name, value: value})
+
+        ; Print
+        } else if tok == "Print" {
+            i = i + 1
+            ast.append({type: "Print", value: tokens[i]})
+
+        ; If
+        } else if tok == "if" {
+            i = i + 1
+            ast.append({type: "IfStart", cond: tokens[i]})
+        } else if tok == "else" {
+            ast.append({type: "Else"})
+        } else if tok == "}" {
+            ast.append({type: "BlockEnd"})
+
+        ; For i in [1..N]
+        } else if tok == "for" {
+            i = i + 1
+            let varname = tokens[i]
+            i = i + 2 ; skip "in"
+            i = i + 1 ; expect "["
+            let start = tokens[i]
+            i = i + 2 ; skip ".."
+            let endv = tokens[i]
+            i = i + 1 ; expect "]"
+            ast.append({type: "ForLoop", var: varname, start: start, end: endv})
+
+        ; Func Decl
+        } else if tok == "Func" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 1
+            let args = []
+            while tokens[i] != ")" {
+                args.append(tokens[i])
+                i = i + 1
+            }
+            ast.append({type: "FunctionDecl", name: name, args: args})
+
+        ; Return
+        } else if tok == "return" {
+            i = i + 1
+            ast.append({type: "Return", value: tokens[i]})
+
+        ; Function Call
+        } else if tok not in ["{","}","(",")","[","]"] {
+            if i+1 < len(tokens) and tokens[i+1] == "(" {
+                let callname = tok
+                i = i + 2
+                let args = []
+                while tokens[i] != ")" {
+                    args.append(tokens[i])
+                    i = i + 1
+                }
+                ast.append({type: "FunctionCall", name: callname, args: args})
+            }
+        }
+
+        i = i + 1
+    }
+
+    return ast
+}
+
+; --------------------------------------------
+; LLVM CODEGEN
+; --------------------------------------------
+
+Func codegen_llvm(ast: list) {
+    let ir = ""
+    ir = ir + "declare i32 @puts(i8*)\n"
+    ir = ir + "define i32 @main() {\n"
+
+    let varmap = {}
+    let tmp = 0
+    let ifc = 0
+    let loopc = 0
+
+    for node in ast {
+        if node.type == "Assign" {
+            tmp = tmp + 1
+            varmap[node.name] = "%var" + tmp
+            ir = ir + "  " + varmap[node.name] + " = alloca i32\n"
+            ir = ir + "  store i32 " + node.value + ", i32* " + varmap[node.name] + "\n"
+
+        } else if node.type == "Print" {
+            ir = ir + "  call i32 @puts(i8* c\"" + node.value + "\\00\")\n"
+
+        } else if node.type == "IfStart" {
+            ifc = ifc + 1
+            ir = ir + "  %cond" + ifc + " = icmp ne i32 " + node.cond + ", 0\n"
+            ir = ir + "  br i1 %cond" + ifc + ", label %if" + ifc + ", label %else" + ifc + "\n"
+            ir = ir + "if" + ifc + ":\n"
+
+        } else if node.type == "Else" {
+            ir = ir + "  br label %endif" + ifc + "\n"
+            ir = ir + "else" + ifc + ":\n"
+
+        } else if node.type == "BlockEnd" {
+            ir = ir + "  br label %endif" + ifc + "\n"
+            ir = ir + "endif" + ifc + ":\n"
+
+        } else if node.type == "ForLoop" {
+            loopc = loopc + 1
+            let lid = loopc
+            ir = ir + "  br label %for" + lid + "_cond\n"
+            ir = ir + "for" + lid + "_cond:\n"
+            ir = ir + "  %i" + lid + " = phi i32 [" + node.start + ", %0], [%inc" + lid + ", %for" + lid + "_body]\n"
+            ir = ir + "  %cmp" + lid + " = icmp sle i32 %i" + lid + ", " + node.end + "\n"
+            ir = ir + "  br i1 %cmp" + lid + ", label %for" + lid + "_body, label %for" + lid + "_end\n"
+            ir = ir + "for" + lid + "_body:\n"
+            ir = ir + "  ; body using %i" + lid + "\n"
+            ir = ir + "  %inc" + lid + " = add i32 %i" + lid + ", 1\n"
+            ir = ir + "  br label %for" + lid + "_cond\n"
+            ir = ir + "for" + lid + "_end:\n"
+
+        } else if node.type == "FunctionDecl" {
+            ir = ir + "define i32 @" + node.name + "("
+            let args = []
+            for a in node.args {
+                args.append("i32 %" + a)
+            }
+            ir = ir + string.join(args, ", ") + ") {\n"
+
+        } else if node.type == "Return" {
+            ir = ir + "  ret i32 " + node.value + "\n}\n"
+
+        } else if node.type == "FunctionCall" {
+            ir = ir + "  call i32 @" + node.name + "("
+            let args = []
+            for a in node.args {
+                args.append("i32 " + a)
+            }
+            ir = ir + string.join(args, ", ") + ")\n"
+        }
+    }
+
+    ir = ir + "  ret i32 0\n}\n"
+    return ir
+}
+
+; --------------------------------------------
+; NASM CODEGEN
+; --------------------------------------------
+
+Func codegen_nasm(ast: list) {
+    let asm = "section .data\n"
+    let text_count = 0
+    let varmap = {}
+    let varoff = 0
+    let ifc = 0
+    let loopc = 0
+
+    for node in ast {
+        if node.type == "Print" {
+            asm = asm + "msg" + text_count + ": db \"" + node.value + "\",0\n"
+            text_count = text_count + 1
+        }
+    }
+
+    asm = asm + "section .text\n"
+    asm = asm + "global _start\n"
+    asm = asm + "_start:\n"
+    asm = asm + "  push rbp\n"
+    asm = asm + "  mov rbp, rsp\n"
+
+    for node in ast {
+        if node.type == "Assign" {
+            varoff = varoff + 8
+            varmap[node.name] = "[rbp-" + varoff + "]"
+            asm = asm + "  mov qword " + varmap[node.name] + ", " + node.value + "\n"
+
+        } else if node.type == "IfStart" {
+            ifc = ifc + 1
+            asm = asm + "  cmp " + node.cond + ", 0\n"
+            asm = asm + "  je else" + ifc + "\n"
+
+        } else if node.type == "Else" {
+            asm = asm + "  jmp endif" + ifc + "\n"
+            asm = asm + "else" + ifc + ":\n"
+
+        } else if node.type == "BlockEnd" {
+            asm = asm + "endif" + ifc + ":\n"
+
+        } else if node.type == "ForLoop" {
+            loopc = loopc + 1
+            let lid = loopc
+            asm = asm + "  mov rcx, " + node.start + "\n"
+            asm = asm + "for" + lid + "_cond:\n"
+            asm = asm + "  cmp rcx, " + node.end + "\n"
+            asm = asm + "  jg for" + lid + "_end\n"
+            asm = asm + "for" + lid + "_body:\n"
+            asm = asm + "  ; loop body with rcx as " + node.var + "\n"
+            asm = asm + "  inc rcx\n"
+            asm = asm + "  jmp for" + lid + "_cond\n"
+            asm = asm + "for" + lid + "_end:\n"
+
+        } else if node.type == "FunctionDecl" {
+            asm = asm + node.name + ":\n"
+            asm = asm + "  push rbp\n"
+            asm = asm + "  mov rbp, rsp\n"
+
+        } else if node.type == "Return" {
+            asm = asm + "  mov rax, " + node.value + "\n"
+            asm = asm + "  mov rsp, rbp\n"
+            asm = asm + "  pop rbp\n"
+            asm = asm + "  ret\n"
+
+        } else if node.type == "FunctionCall" {
+            if len(node.args) > 0 {
+                asm = asm + "  mov rdi, " + node.args[0] + "\n"
+            }
+            asm = asm + "  call " + node.name + "\n"
+        }
+    }
+
+    asm = asm + "  mov rsp, rbp\n"
+    asm = asm + "  pop rbp\n"
+    asm = asm + "  mov rax, 60\n"
+    asm = asm + "  xor rdi, rdi\n"
+    asm = asm + "  syscall\n"
+
+    return asm
+}
+
+; --------------------------------------------
+; DRIVER
+; --------------------------------------------
+
+Prog main() {
+    let src = io.readFile("program.ps")
+
+    let tokens = tokenize(src)
+    Print ["[Lexer] " + tokens]
+
+    let ast = parse(tokens)
+    Print ["[Parser] AST built"]
+
+    let llvm = codegen_llvm(ast)
+    io.writeFile("program.ll", llvm)
+
+    let asm = codegen_nasm(ast)
+    io.writeFile("program.asm", asm)
+
+    Print ["[Codegen] program.ll + program.asm generated"]
+}
+end
+
+; ============================================
+; PlasmaScript Compiler (bootstrap core, v3)
+; Features: variables, arithmetic (+,-,*,/),
+; if/else, for-loops, multi-arg functions
+; with SysV ABI arg passing
+; Backends: LLVM IR + NASM
+; ============================================
+
+Import "io"
+Import "string"
+Import "list"
+
+; --------------------------------------------
+; TOKENIZER
+; --------------------------------------------
+
+Func tokenize(source: text) {
+    let tokens = []
+    let current = ""
+
+    for ch in source {
+        if ch == " " or ch == "\n" or ch == "\t" {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+        } else if ch in ["{","}","(",")","[","]","+","-","*","/","=","<",">",":",".",","] {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+            tokens.append(ch)
+        } else {
+            current = current + ch
+        }
+    }
+
+    if current != "" {
+        tokens.append(current)
+    }
+
+    return tokens
+}
+
+; --------------------------------------------
+; PARSER
+; --------------------------------------------
+
+Func parse(tokens: list) {
+    let ast = []
+    let i = 0
+
+    while i < len(tokens) {
+        let tok = tokens[i]
+
+        if tok == "Prog" or tok == "Main" {
+            ast.append({type: "ProgramStart"})
+
+        } else if tok == "end" or tok == "run" {
+            ast.append({type: "ProgramEnd"})
+
+        ; Variable
+        } else if tok == "let" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 2
+            let value = tokens[i]
+            ast.append({type: "Assign", name: name, value: value})
+
+        ; Print
+        } else if tok == "Print" {
+            i = i + 1
+            ast.append({type: "Print", value: tokens[i]})
+
+        ; Arithmetic op (binary)
+        } else if tok in ["+","-","*","/"] {
+            ast.append({type: "BinaryOp", op: tok, left: tokens[i-1], right: tokens[i+1]})
+
+        ; If/Else
+        } else if tok == "if" {
+            i = i + 1
+            ast.append({type: "IfStart", cond: tokens[i]})
+        } else if tok == "else" {
+            ast.append({type: "Else"})
+        } else if tok == "}" {
+            ast.append({type: "BlockEnd"})
+
+        ; For Loop
+        } else if tok == "for" {
+            i = i + 1
+            let varname = tokens[i]
+            i = i + 2
+            i = i + 1
+            let start = tokens[i]
+            i = i + 2
+            let endv = tokens[i]
+            i = i + 1
+            ast.append({type: "ForLoop", var: varname, start: start, end: endv})
+
+        ; Function Decl
+        } else if tok == "Func" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 1
+            let args = []
+            while tokens[i] != ")" {
+                args.append(tokens[i])
+                i = i + 1
+            }
+            ast.append({type: "FunctionDecl", name: name, args: args})
+
+        ; Return
+        } else if tok == "return" {
+            i = i + 1
+            ast.append({type: "Return", value: tokens[i]})
+
+        ; Function Call
+        } else if tok not in ["{","}","(",")","[","]"] {
+            if i+1 < len(tokens) and tokens[i+1] == "(" {
+                let callname = tok
+                i = i + 2
+                let args = []
+                while tokens[i] != ")" {
+                    args.append(tokens[i])
+                    i = i + 1
+                }
+                ast.append({type: "FunctionCall", name: callname, args: args})
+            }
+        }
+
+        i = i + 1
+    }
+
+    return ast
+}
+
+; --------------------------------------------
+; LLVM CODEGEN
+; --------------------------------------------
+
+Func codegen_llvm(ast: list) {
+    let ir = ""
+    ir = ir + "declare i32 @puts(i8*)\n"
+    ir = ir + "define i32 @main() {\n"
+
+    let tmp = 0
+    let ifc = 0
+    let loopc = 0
+
+    for node in ast {
+        if node.type == "Assign" {
+            tmp = tmp + 1
+            let varname = "%var" + tmp
+            ir = ir + "  " + varname + " = alloca i32\n"
+            ir = ir + "  store i32 " + node.value + ", i32* " + varname + "\n"
+
+        } else if node.type == "BinaryOp" {
+            tmp = tmp + 1
+            let res = "%t" + tmp
+            if node.op == "+" {
+                ir = ir + "  " + res + " = add i32 " + node.left + ", " + node.right + "\n"
+            } else if node.op == "-" {
+                ir = ir + "  " + res + " = sub i32 " + node.left + ", " + node.right + "\n"
+            } else if node.op == "*" {
+                ir = ir + "  " + res + " = mul i32 " + node.left + ", " + node.right + "\n"
+            } else if node.op == "/" {
+                ir = ir + "  " + res + " = sdiv i32 " + node.left + ", " + node.right + "\n"
+            }
+
+        } else if node.type == "Print" {
+            ir = ir + "  call i32 @puts(i8* c\"" + node.value + "\\00\")\n"
+
+        } else if node.type == "FunctionDecl" {
+            ir = ir + "define i32 @" + node.name + "("
+            let args = []
+            for a in node.args {
+                args.append("i32 %" + a)
+            }
+            ir = ir + string.join(args, ", ") + ") {\n"
+
+        } else if node.type == "Return" {
+            ir = ir + "  ret i32 " + node.value + "\n}\n"
+
+        } else if node.type == "FunctionCall" {
+            ir = ir + "  call i32 @" + node.name + "("
+            let args = []
+            for a in node.args {
+                args.append("i32 " + a)
+            }
+            ir = ir + string.join(args, ", ") + ")\n"
+        }
+    }
+
+    ir = ir + "  ret i32 0\n}\n"
+    return ir
+}
+
+; --------------------------------------------
+; NASM CODEGEN (with SysV ABI args)
+; --------------------------------------------
+
+Func codegen_nasm(ast: list) {
+    let asm = "section .data\n"
+    let text_count = 0
+    let varoff = 0
+    let ifc = 0
+    let loopc = 0
+
+    for node in ast {
+        if node.type == "Print" {
+            asm = asm + "msg" + text_count + ": db \"" + node.value + "\",0\n"
+            text_count = text_count + 1
+        }
+    }
+
+    asm = asm + "section .text\n"
+    asm = asm + "global _start\n"
+    asm = asm + "_start:\n"
+    asm = asm + "  push rbp\n"
+    asm = asm + "  mov rbp, rsp\n"
+
+    for node in ast {
+        if node.type == "Assign" {
+            varoff = varoff + 8
+            asm = asm + "  mov qword [rbp-" + varoff + "], " + node.value + "\n"
+
+        } else if node.type == "BinaryOp" {
+            asm = asm + "  mov rax, " + node.left + "\n"
+            if node.op == "+" {
+                asm = asm + "  add rax, " + node.right + "\n"
+            } else if node.op == "-" {
+                asm = asm + "  sub rax, " + node.right + "\n"
+            } else if node.op == "*" {
+                asm = asm + "  imul rax, " + node.right + "\n"
+            } else if node.op == "/" {
+                asm = asm + "  xor rdx, rdx\n"
+                asm = asm + "  mov rbx, " + node.right + "\n"
+                asm = asm + "  idiv rbx\n"
+            }
+
+        } else if node.type == "FunctionDecl" {
+            asm = asm + node.name + ":\n"
+            asm = asm + "  push rbp\n"
+            asm = asm + "  mov rbp, rsp\n"
+            ; args come in via rdi, rsi, rdx, rcx, r8, r9
+
+        } else if node.type == "Return" {
+            asm = asm + "  mov rax, " + node.value + "\n"
+            asm = asm + "  mov rsp, rbp\n"
+            asm = asm + "  pop rbp\n"
+            asm = asm + "  ret\n"
+
+        } else if node.type == "FunctionCall" {
+            let regs = ["rdi","rsi","rdx","rcx","r8","r9"]
+            let idx = 0
+            for a in node.args {
+                if idx < len(regs) {
+                    asm = asm + "  mov " + regs[idx] + ", " + a + "\n"
+                }
+                idx = idx + 1
+            }
+            asm = asm + "  call " + node.name + "\n"
+        }
+    }
+
+    asm = asm + "  mov rsp, rbp\n"
+    asm = asm + "  pop rbp\n"
+    asm = asm + "  mov rax, 60\n"
+    asm = asm + "  xor rdi, rdi\n"
+    asm = asm + "  syscall\n"
+
+    return asm
+}
+
+; --------------------------------------------
+; DRIVER
+; --------------------------------------------
+
+Prog main() {
+    let src = io.readFile("program.ps")
+
+    let tokens = tokenize(src)
+    Print ["[Lexer] " + tokens]
+
+    let ast = parse(tokens)
+    Print ["[Parser] AST built"]
+
+    let llvm = codegen_llvm(ast)
+    io.writeFile("program.ll", llvm)
+
+    let asm = codegen_nasm(ast)
+    io.writeFile("program.asm", asm)
+
+    Print ["[Codegen] program.ll + program.asm generated"]
+}
+end
+
+; ============================================
+; PlasmaScript Compiler (bootstrap core v4)
+; Features:
+;  - Variables + arithmetic
+;  - If/Else branching
+;  - For loops with [x..y], variable-aware
+;  - Functions with local scope + args
+;  - Multi-arg calls (SysV ABI)
+; Backends: LLVM IR + NASM
+; ============================================
+
+Import "io"
+Import "string"
+Import "list"
+
+; --------------------------------------------
+; TOKENIZER
+; --------------------------------------------
+
+Func tokenize(source: text) {
+    let tokens = []
+    let current = ""
+
+    for ch in source {
+        if ch == " " or ch == "\n" or ch == "\t" {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+        } else if ch in ["{","}","(",")","[","]","+","-","*","/","=","<",">",":",".",","] {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+            tokens.append(ch)
+        } else {
+            current = current + ch
+        }
+    }
+
+    if current != "" {
+        tokens.append(current)
+    }
+
+    return tokens
+}
+
+; --------------------------------------------
+; PARSER
+; --------------------------------------------
+
+Func parse(tokens: list) {
+    let ast = []
+    let i = 0
+
+    while i < len(tokens) {
+        let tok = tokens[i]
+
+        if tok == "Prog" or tok == "Main" {
+            ast.append({type: "ProgramStart"})
+
+        } else if tok == "end" or tok == "run" {
+            ast.append({type: "ProgramEnd"})
+
+        ; Variable assignment
+        } else if tok == "let" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 2
+            let value = tokens[i]
+            ast.append({type: "Assign", name: name, value: value})
+
+        ; Print
+        } else if tok == "Print" {
+            i = i + 1
+            ast.append({type: "Print", value: tokens[i]})
+
+        ; Arithmetic
+        } else if tok in ["+","-","*","/"] {
+            ast.append({type: "BinaryOp", op: tok, left: tokens[i-1], right: tokens[i+1]})
+
+        ; If/Else
+        } else if tok == "if" {
+            i = i + 1
+            ast.append({type: "IfStart", cond: tokens[i]})
+        } else if tok == "else" {
+            ast.append({type: "Else"})
+        } else if tok == "}" {
+            ast.append({type: "BlockEnd"})
+
+        ; For [x..y]
+        } else if tok == "for" {
+            i = i + 1
+            let varname = tokens[i]
+            i = i + 2 ; skip "in"
+            i = i + 1 ; "["
+            let start = tokens[i]
+            i = i + 2 ; ".."
+            let endv = tokens[i]
+            i = i + 1 ; "]"
+            ast.append({type: "ForLoop", var: varname, start: start, end: endv})
+
+        ; Function declaration
+        } else if tok == "Func" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 1
+            let args = []
+            while tokens[i] != ")" {
+                args.append(tokens[i])
+                i = i + 1
+            }
+            ast.append({type: "FunctionDecl", name: name, args: args})
+
+        ; Return
+        } else if tok == "return" {
+            i = i + 1
+            ast.append({type: "Return", value: tokens[i]})
+
+        ; Function call
+        } else if tok not in ["{","}","(",")","[","]"] {
+            if i+1 < len(tokens) and tokens[i+1] == "(" {
+                let callname = tok
+                i = i + 2
+                let args = []
+                while tokens[i] != ")" {
+                    args.append(tokens[i])
+                    i = i + 1
+                }
+                ast.append({type: "FunctionCall", name: callname, args: args})
+            }
+        }
+
+        i = i + 1
+    }
+
+    return ast
+}
+
+; --------------------------------------------
+; LLVM CODEGEN
+; --------------------------------------------
+
+Func codegen_llvm(ast: list) {
+    let ir = ""
+    ir = ir + "declare i32 @puts(i8*)\n"
+    ir = ir + "define i32 @main() {\n"
+
+    let tmp = 0
+    let ifc = 0
+    let loopc = 0
+    let varmap = {}
+
+    for node in ast {
+        if node.type == "Assign" {
+            tmp = tmp + 1
+            varmap[node.name] = "%var" + tmp
+            ir = ir + "  " + varmap[node.name] + " = alloca i32\n"
+            if node.value in varmap {
+                ir = ir + "  %ld" + tmp + " = load i32, i32* " + varmap[node.value] + "\n"
+                ir = ir + "  store i32 %ld" + tmp + ", i32* " + varmap[node.name] + "\n"
+            } else {
+                ir = ir + "  store i32 " + node.value + ", i32* " + varmap[node.name] + "\n"
+            }
+
+        } else if node.type == "Print" {
+            ir = ir + "  call i32 @puts(i8* c\"" + node.value + "\\00\")\n"
+
+        } else if node.type == "BinaryOp" {
+            tmp = tmp + 1
+            let res = "%t" + tmp
+            if node.op == "+" {
+                ir = ir + "  " + res + " = add i32 " + node.left + ", " + node.right + "\n"
+            } else if node.op == "-" {
+                ir = ir + "  " + res + " = sub i32 " + node.left + ", " + node.right + "\n"
+            } else if node.op == "*" {
+                ir = ir + "  " + res + " = mul i32 " + node.left + ", " + node.right + "\n"
+            } else if node.op == "/" {
+                ir = ir + "  " + res + " = sdiv i32 " + node.left + ", " + node.right + "\n"
+            }
+
+        } else if node.type == "ForLoop" {
+            loopc = loopc + 1
+            let lid = loopc
+            ; load start and end if they are vars
+            let start = node.start
+            let endv = node.end
+            if start in varmap {
+                tmp = tmp + 1
+                start = "%ld" + tmp
+                ir = ir + "  " + start + " = load i32, i32* " + varmap[node.start] + "\n"
+            }
+            if endv in varmap {
+                tmp = tmp + 1
+                endv = "%ld" + tmp
+                ir = ir + "  " + endv + " = load i32, i32* " + varmap[node.end] + "\n"
+            }
+            ir = ir + "  br label %for" + lid + "_cond\n"
+            ir = ir + "for" + lid + "_cond:\n"
+            ir = ir + "  %i" + lid + " = phi i32 [" + start + ", %0], [%inc" + lid + ", %for" + lid + "_body]\n"
+            ir = ir + "  %cmp" + lid + " = icmp sle i32 %i" + lid + ", " + endv + "\n"
+            ir = ir + "  br i1 %cmp" + lid + ", label %for" + lid + "_body, label %for" + lid + "_end\n"
+            ir = ir + "for" + lid + "_body:\n"
+            ir = ir + "  ; loop body here, use %i" + lid + "\n"
+            ir = ir + "  %inc" + lid + " = add i32 %i" + lid + ", 1\n"
+            ir = ir + "  br label %for" + lid + "_cond\n"
+            ir = ir + "for" + lid + "_end:\n"
+
+        } else if node.type == "FunctionDecl" {
+            ir = ir + "define i32 @" + node.name + "("
+            let args = []
+            for a in node.args {
+                args.append("i32 %" + a)
+            }
+            ir = ir + string.join(args, ", ") + ") {\n"
+
+        } else if node.type == "Return" {
+            ir = ir + "  ret i32 " + node.value + "\n}\n"
+
+        } else if node.type == "FunctionCall" {
+            ir = ir + "  call i32 @" + node.name + "("
+            let args = []
+            for a in node.args {
+                if a in varmap {
+                    tmp = tmp + 1
+                    let l = "%ld" + tmp
+                    ir = ir + "  " + l + " = load i32, i32* " + varmap[a] + "\n"
+                    args.append("i32 " + l)
+                } else {
+                    args.append("i32 " + a)
+                }
+            }
+            ir = ir + string.join(args, ", ") + ")\n"
+        }
+    }
+
+    ir = ir + "  ret i32 0\n}\n"
+    return ir
+}
+
+; --------------------------------------------
+; NASM CODEGEN
+; --------------------------------------------
+
+Func codegen_nasm(ast: list) {
+    let asm = "section .data\n"
+    let text_count = 0
+    let varmap = {}
+    let varoff = 0
+    let loopc = 0
+
+    for node in ast {
+        if node.type == "Print" {
+            asm = asm + "msg" + text_count + ": db \"" + node.value + "\",0\n"
+            text_count = text_count + 1
+        }
+    }
+
+    asm = asm + "section .text\n"
+    asm = asm + "global _start\n"
+    asm = asm + "_start:\n"
+    asm = asm + "  push rbp\n"
+    asm = asm + "  mov rbp, rsp\n"
+
+    for node in ast {
+        if node.type == "Assign" {
+            varoff = varoff + 8
+            varmap[node.name] = "[rbp-" + varoff + "]"
+            asm = asm + "  mov qword " + varmap[node.name] + ", " + node.value + "\n"
+
+        } else if node.type == "ForLoop" {
+            loopc = loopc + 1
+            let lid = loopc
+            asm = asm + "  ; load start and end for loop\n"
+            asm = asm + "  mov rcx, " + (node.start in varmap ? varmap[node.start] : node.start) + "\n"
+            asm = asm + "  mov rbx, " + (node.end in varmap ? varmap[node.end] : node.end) + "\n"
+            asm = asm + "for" + lid + "_cond:\n"
+            asm = asm + "  cmp rcx, rbx\n"
+            asm = asm + "  jg for" + lid + "_end\n"
+            asm = asm + "for" + lid + "_body:\n"
+            asm = asm + "  ; loop body using rcx as " + node.var + "\n"
+            asm = asm + "  inc rcx\n"
+            asm = asm + "  jmp for" + lid + "_cond\n"
+            asm = asm + "for" + lid + "_end:\n"
+
+        } else if node.type == "FunctionDecl" {
+            asm = asm + node.name + ":\n"
+            asm = asm + "  push rbp\n"
+            asm = asm + "  mov rbp, rsp\n"
+            ; map args (SysV ABI)
+            let regs = ["rdi","rsi","rdx","rcx","r8","r9"]
+            let idx = 0
+            for a in node.args {
+                varoff = varoff + 8
+                varmap[a] = "[rbp-" + varoff + "]"
+                if idx < len(regs) {
+                    asm = asm + "  mov " + varmap[a] + ", " + regs[idx] + "\n"
+                }
+                idx = idx + 1
+            }
+
+        } else if node.type == "Return" {
+            asm = asm + "  mov rax, " + (node.value in varmap ? varmap[node.value] : node.value) + "\n"
+            asm = asm + "  mov rsp, rbp\n"
+            asm = asm + "  pop rbp\n"
+            asm = asm + "  ret\n"
+
+        } else if node.type == "FunctionCall" {
+            let regs = ["rdi","rsi","rdx","rcx","r8","r9"]
+            let idx = 0
+            for a in node.args {
+                if idx < len(regs) {
+                    asm = asm + "  mov " + regs[idx] + ", " + (a in varmap ? varmap[a] : a) + "\n"
+                }
+                idx = idx + 1
+            }
+            asm = asm + "  call " + node.name + "\n"
+        }
+    }
+
+    asm = asm + "  mov rsp, rbp\n"
+    asm = asm + "  pop rbp\n"
+    asm = asm + "  mov rax, 60\n"
+    asm = asm + "  xor rdi, rdi\n"
+    asm = asm + "  syscall\n"
+
+    return asm
+}
+
+; --------------------------------------------
+; DRIVER
+; --------------------------------------------
+
+Prog main() {
+    let src = io.readFile("program.ps")
+
+    let tokens = tokenize(src)
+    Print ["[Lexer] " + tokens]
+
+    let ast = parse(tokens)
+    Print ["[Parser] AST built"]
+
+    let llvm = codegen_llvm(ast)
+    io.writeFile("program.ll", llvm)
+
+    let asm = codegen_nasm(ast)
+    io.writeFile("program.asm", asm)
+
+    Print ["[Codegen] program.ll + program.asm generated"]
+}
+end
+
+; ============================================
+; PlasmaScript Compiler (bootstrap core v5)
+; Features:
+;  - Variables + arithmetic expressions
+;  - Operator precedence parsing
+;  - If/Else branching
+;  - For loops with [x..y]
+;  - Functions with local scope + shadowing
+; Backends: LLVM IR + NASM
+; ============================================
+
+Import "io"
+Import "string"
+Import "list"
+
+; --------------------------------------------
+; TOKENIZER
+; --------------------------------------------
+
+Func tokenize(source: text) {
+    let tokens = []
+    let current = ""
+
+    for ch in source {
+        if ch == " " or ch == "\n" or ch == "\t" {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+        } else if ch in ["{","}","(",")","[","]","+","-","*","/","=","<",">",":",".",","] {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+            tokens.append(ch)
+        } else {
+            current = current + ch
+        }
+    }
+
+    if current != "" {
+        tokens.append(current)
+    }
+
+    return tokens
+}
+
+; --------------------------------------------
+; EXPRESSION PARSER (Shunting Yard)
+; --------------------------------------------
+
+Func parse_expression(tokens: list, start: number) {
+    let output = []
+    let ops = []
+    let i = start
+
+    Func precedence(op) {
+        if op == "*" or op == "/" { return 2 }
+        if op == "+" or op == "-" { return 1 }
+        return 0
+    }
+
+    while i < len(tokens) and tokens[i] not in [";","}",")","]"] {
+        let tok = tokens[i]
+        if tok.isdigit() or tok.isalpha() {
+            output.append({type: "LiteralOrVar", value: tok})
+        } else if tok in ["+","-","*","/"] {
+            while len(ops) > 0 and precedence(ops[-1]) >= precedence(tok) {
+                output.append({type: "Op", value: ops.pop()})
+            }
+            ops.append(tok)
+        } else if tok == "(" {
+            ops.append(tok)
+        } else if tok == ")" {
+            while ops[-1] != "(" {
+                output.append({type: "Op", value: ops.pop()})
+            }
+            ops.pop()
+        }
+        i = i + 1
+    }
+
+    while len(ops) > 0 {
+        output.append({type: "Op", value: ops.pop()})
+    }
+
+    return {ast: output, next: i}
+}
+
+; --------------------------------------------
+; PARSER (with scope + blocks)
+; --------------------------------------------
+
+Func parse(tokens: list) {
+    let ast = []
+    let i = 0
+    let block_stack = []
+
+    while i < len(tokens) {
+        let tok = tokens[i]
+
+        if tok == "Prog" or tok == "Main" {
+            ast.append({type: "ProgramStart"})
+        } else if tok == "end" or tok == "run" {
+            ast.append({type: "ProgramEnd"})
+
+        ; Block management
+        } else if tok == "{" {
+            block_stack.append({})
+            ast.append({type: "BlockStart"})
+        } else if tok == "}" {
+            block_stack.pop()
+            ast.append({type: "BlockEnd"})
+
+        ; Variable
+        } else if tok == "let" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 2
+            let parsed = parse_expression(tokens, i)
+            ast.append({type: "AssignExpr", name: name, expr: parsed.ast})
+            i = parsed.next - 1
+
+        ; Print
+        } else if tok == "Print" {
+            i = i + 1
+            ast.append({type: "Print", value: tokens[i]})
+
+        ; If/Else
+        } else if tok == "if" {
+            i = i + 1
+            ast.append({type: "IfStart", cond: tokens[i]})
+        } else if tok == "else" {
+            ast.append({type: "Else"})
+
+        ; For
+        } else if tok == "for" {
+            i = i + 1
+            let varname = tokens[i]
+            i = i + 2 ; "in"
+            i = i + 1 ; "["
+            let start = tokens[i]
+            i = i + 2 ; ".."
+            let endv = tokens[i]
+            i = i + 1 ; "]"
+            ast.append({type: "ForLoop", var: varname, start: start, end: endv})
+
+        ; Function
+        } else if tok == "Func" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 1
+            let args = []
+            while tokens[i] != ")" {
+                args.append(tokens[i])
+                i = i + 1
+            }
+            ast.append({type: "FunctionDecl", name: name, args: args})
+
+        ; Return
+        } else if tok == "return" {
+            i = i + 1
+            let parsed = parse_expression(tokens, i)
+            ast.append({type: "ReturnExpr", expr: parsed.ast})
+            i = parsed.next - 1
+
+        ; Function Call
+        } else if tok not in ["{","}","(",")","[","]"] {
+            if i+1 < len(tokens) and tokens[i+1] == "(" {
+                let callname = tok
+                i = i + 2
+                let args = []
+                while tokens[i] != ")" {
+                    args.append(tokens[i])
+                    i = i + 1
+                }
+                ast.append({type: "FunctionCall", name: callname, args: args})
+            }
+        }
+
+        i = i + 1
+    }
+
+    return ast
+}
+
+; --------------------------------------------
+; LLVM CODEGEN (Expression + Scope aware)
+; --------------------------------------------
+
+Func codegen_llvm(ast: list) {
+    let ir = ""
+    ir = ir + "declare i32 @puts(i8*)\n"
+    ir = ir + "define i32 @main() {\n"
+
+    let tmp = 0
+    let loopc = 0
+    let varmap_stack = [ {} ]
+
+    Func fresh() {
+        tmp = tmp + 1
+        return "%t" + tmp
+    }
+
+    Func lookup(name) {
+        for s in reversed(varmap_stack) {
+            if name in s { return s[name] }
+        }
+        return name
+    }
+
+    for node in ast {
+        if node.type == "BlockStart" {
+            varmap_stack.append({})
+        } else if node.type == "BlockEnd" {
+            varmap_stack.pop()
+
+        } else if node.type == "AssignExpr" {
+            let slot = fresh()
+            varmap_stack[-1][node.name] = slot
+            ir = ir + "  " + slot + " = alloca i32\n"
+            ; expression lowering (RPN walk)
+            let stack = []
+            for t in node.expr {
+                if t.type == "LiteralOrVar" {
+                    stack.append(lookup(t.value))
+                } else if t.type == "Op" {
+                    let b = stack.pop()
+                    let a = stack.pop()
+                    let r = fresh()
+                    if t.value == "+" {
+                        ir = ir + "  " + r + " = add i32 " + a + ", " + b + "\n"
+                    } else if t.value == "-" {
+                        ir = ir + "  " + r + " = sub i32 " + a + ", " + b + "\n"
+                    } else if t.value == "*" {
+                        ir = ir + "  " + r + " = mul i32 " + a + ", " + b + "\n"
+                    } else if t.value == "/" {
+                        ir = ir + "  " + r + " = sdiv i32 " + a + ", " + b + "\n"
+                    }
+                    stack.append(r)
+                }
+            }
+            ir = ir + "  store i32 " + stack[-1] + ", i32* " + slot + "\n"
+
+        } else if node.type == "Print" {
+            ir = ir + "  call i32 @puts(i8* c\"" + node.value + "\\00\")\n"
+        }
+    }
+
+    ir = ir + "  ret i32 0\n}\n"
+    return ir
+}
+
+; --------------------------------------------
+; NASM CODEGEN (sketch, similar to LLVM)
+; --------------------------------------------
+
+Func codegen_nasm(ast: list) {
+    let asm = "section .data\nmsg0: db \"placeholder\",0\n"
+    asm = asm + "section .text\nglobal _start\n_start:\n"
+    asm = asm + "  push rbp\n  mov rbp,rsp\n"
+
+    let varmap_stack = [ {} ]
+    let varoff = 0
+
+    for node in ast {
+        if node.type == "BlockStart" {
+            varmap_stack.append({})
+        } else if node.type == "BlockEnd" {
+            varmap_stack.pop()
+
+        } else if node.type == "AssignExpr" {
+            varoff = varoff + 8
+            varmap_stack[-1][node.name] = "[rbp-" + varoff + "]"
+            asm = asm + "  mov qword " + varmap_stack[-1][node.name] + ", " + node.expr[0].value + "\n"
+
+        } else if node.type == "Print" {
+            asm = asm + "  mov rax,1\n  mov rdi,1\n  mov rsi,msg0\n  mov rdx,11\n  syscall\n"
+        }
+    }
+
+    asm = asm + "  mov rsp,rbp\n  pop rbp\n"
+    asm = asm + "  mov rax,60\n  xor rdi,rdi\n  syscall\n"
+    return asm
+}
+
+; --------------------------------------------
+; DRIVER
+; --------------------------------------------
+
+Prog main() {
+    let src = io.readFile("program.ps")
+
+    let tokens = tokenize(src)
+    Print ["[Lexer] " + tokens]
+
+    let ast = parse(tokens)
+    Print ["[Parser] AST built"]
+
+    let llvm = codegen_llvm(ast)
+    io.writeFile("program.ll", llvm)
+
+    let asm = codegen_nasm(ast)
+    io.writeFile("program.asm", asm)
+
+    Print ["[Codegen] program.ll + program.asm generated"]
+}
+end
+
+; ============================================
+; PlasmaScript Compiler v6
+; ============================================
+; Features:
+;  - Lexer / Tokenizer
+;  - Expression parser (operator precedence)
+;  - AST for variables, functions, if/else, loops
+;  - Scoped symbol tables (block-local vars)
+;  - LLVM IR backend
+;  - NASM x64 backend
+; ============================================
+
+Import "io"
+Import "string"
+Import "list"
+
+; --------------------------------------------
+; TOKENIZER
+; --------------------------------------------
+
+Func tokenize(source: text) {
+    let tokens = []
+    let current = ""
+
+    for ch in source {
+        if ch == " " or ch == "\n" or ch == "\t" {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+        } else if ch in ["{","}","(",")","[","]","+","-","*","/","=","<",">",":",".",","] {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+            tokens.append(ch)
+        } else {
+            current = current + ch
+        }
+    }
+
+    if current != "" {
+        tokens.append(current)
+    }
+
+    return tokens
+}
+
+; --------------------------------------------
+; EXPRESSION PARSER (Shunting Yard → RPN AST)
+; --------------------------------------------
+
+Func parse_expression(tokens: list, start: number) {
+    let output = []
+    let ops = []
+    let i = start
+
+    Func precedence(op) {
+        if op == "*" or op == "/" { return 2 }
+        if op == "+" or op == "-" { return 1 }
+        return 0
+    }
+
+    while i < len(tokens) and tokens[i] not in [";","}",")","]"] {
+        let tok = tokens[i]
+        if tok.isdigit() or tok.isalpha() {
+            output.append({type: "LiteralOrVar", value: tok})
+        } else if tok in ["+","-","*","/"] {
+            while len(ops) > 0 and precedence(ops[-1]) >= precedence(tok) {
+                output.append({type: "Op", value: ops.pop()})
+            }
+            ops.append(tok)
+        } else if tok == "(" {
+            ops.append(tok)
+        } else if tok == ")" {
+            while ops[-1] != "(" {
+                output.append({type: "Op", value: ops.pop()})
+            }
+            ops.pop()
+        }
+        i = i + 1
+    }
+
+    while len(ops) > 0 {
+        output.append({type: "Op", value: ops.pop()})
+    }
+
+    return {ast: output, next: i}
+}
+
+; --------------------------------------------
+; PARSER (Blocks, If/Else, Loops, Functions)
+; --------------------------------------------
+
+Func parse(tokens: list) {
+    let ast = []
+    let i = 0
+
+    while i < len(tokens) {
+        let tok = tokens[i]
+
+        if tok == "Prog" or tok == "Main" {
+            ast.append({type: "ProgramStart"})
+        } else if tok == "end" or tok == "run" {
+            ast.append({type: "ProgramEnd"})
+
+        ; Blocks
+        } else if tok == "{" {
+            ast.append({type: "BlockStart"})
+        } else if tok == "}" {
+            ast.append({type: "BlockEnd"})
+
+        ; Variable assignment
+        } else if tok == "let" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 2
+            let parsed = parse_expression(tokens, i)
+            ast.append({type: "AssignExpr", name: name, expr: parsed.ast})
+            i = parsed.next - 1
+
+        ; Print
+        } else if tok == "Print" {
+            i = i + 1
+            ast.append({type: "Print", value: tokens[i]})
+
+        ; If/Else
+        } else if tok == "if" {
+            i = i + 1
+            let parsed = parse_expression(tokens, i)
+            ast.append({type: "IfStart", cond: parsed.ast})
+            i = parsed.next - 1
+        } else if tok == "else" {
+            ast.append({type: "Else"})
+
+        ; For [x..y]
+        } else if tok == "for" {
+            i = i + 1
+            let varname = tokens[i]
+            i = i + 2 ; skip "in"
+            i = i + 1 ; skip "["
+            let start = tokens[i]
+            i = i + 2 ; skip ".."
+            let endv = tokens[i]
+            i = i + 1 ; skip "]"
+            ast.append({type: "ForLoop", var: varname, start: start, end: endv})
+
+        ; Function declaration
+        } else if tok == "Func" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 1
+            let args = []
+            while tokens[i] != ")" {
+                args.append(tokens[i])
+                i = i + 1
+            }
+            ast.append({type: "FunctionDecl", name: name, args: args})
+
+        ; Return expression
+        } else if tok == "return" {
+            i = i + 1
+            let parsed = parse_expression(tokens, i)
+            ast.append({type: "ReturnExpr", expr: parsed.ast})
+            i = parsed.next - 1
+
+        ; Function calls
+        } else if tok not in ["{","}","(",")","[","]"] {
+            if i+1 < len(tokens) and tokens[i+1] == "(" {
+                let callname = tok
+                i = i + 2
+                let args = []
+                while tokens[i] != ")" {
+                    args.append(tokens[i])
+                    i = i + 1
+                }
+                ast.append({type: "FunctionCall", name: callname, args: args})
+            }
+        }
+
+        i = i + 1
+    }
+
+    return ast
+}
+
+; --------------------------------------------
+; LLVM CODEGEN (with Scoped Variables)
+; --------------------------------------------
+
+Func codegen_llvm(ast: list) {
+    let ir = ""
+    ir = ir + "declare i32 @puts(i8*)\n"
+    ir = ir + "define i32 @main() {\n"
+
+    let tmp = 0
+    let varmap_stack = [ {} ]
+
+    Func fresh() {
+        tmp = tmp + 1
+        return "%t" + tmp
+    }
+
+    Func lookup(name) {
+        for s in reversed(varmap_stack) {
+            if name in s { return s[name] }
+        }
+        return name
+    }
+
+    Func lower_expr(expr: list) {
+        let stack = []
+        for t in expr {
+            if t.type == "LiteralOrVar" {
+                stack.append(lookup(t.value))
+            } else if t.type == "Op" {
+                let b = stack.pop()
+                let a = stack.pop()
+                let r = fresh()
+                if t.value == "+" {
+                    ir = ir + "  " + r + " = add i32 " + a + ", " + b + "\n"
+                } else if t.value == "-" {
+                    ir = ir + "  " + r + " = sub i32 " + a + ", " + b + "\n"
+                } else if t.value == "*" {
+                    ir = ir + "  " + r + " = mul i32 " + a + ", " + b + "\n"
+                } else if t.value == "/" {
+                    ir = ir + "  " + r + " = sdiv i32 " + a + ", " + b + "\n"
+                }
+                stack.append(r)
+            }
+        }
+        return stack[-1]
+    }
+
+    for node in ast {
+        if node.type == "BlockStart" {
+            varmap_stack.append({})
+        } else if node.type == "BlockEnd" {
+            varmap_stack.pop()
+
+        } else if node.type == "AssignExpr" {
+            let slot = fresh()
+            varmap_stack[-1][node.name] = slot
+            ir = ir + "  " + slot + " = alloca i32\n"
+            let res = lower_expr(node.expr)
+            ir = ir + "  store i32 " + res + ", i32* " + slot + "\n"
+
+        } else if node.type == "Print" {
+            ir = ir + "  call i32 @puts(i8* c\"" + node.value + "\\00\")\n"
+
+        } else if node.type == "ReturnExpr" {
+            let res = lower_expr(node.expr)
+            ir = ir + "  ret i32 " + res + "\n}\n"
+        }
+    }
+
+    ir = ir + "  ret i32 0\n}\n"
+    return ir
+}
+
+; --------------------------------------------
+; NASM CODEGEN (simplified but scoped)
+; --------------------------------------------
+
+Func codegen_nasm(ast: list) {
+    let asm = "section .data\nmsg0: db \"Hello\",0\n"
+    asm = asm + "section .text\nglobal _start\n_start:\n"
+    asm = asm + "  push rbp\n  mov rbp,rsp\n"
+
+    let varmap_stack = [ {} ]
+    let varoff = 0
+
+    for node in ast {
+        if node.type == "BlockStart" {
+            varmap_stack.append({})
+        } else if node.type == "BlockEnd" {
+            varmap_stack.pop()
+
+        } else if node.type == "AssignExpr" {
+            varoff = varoff + 8
+            varmap_stack[-1][node.name] = "[rbp-" + varoff + "]"
+            asm = asm + "  mov qword " + varmap_stack[-1][node.name] + ", 1 ; TODO expr\n"
+
+        } else if node.type == "Print" {
+            asm = asm + "  mov rax,1\n  mov rdi,1\n  mov rsi,msg0\n  mov rdx,5\n  syscall\n"
+
+        } else if node.type == "ReturnExpr" {
+            asm = asm + "  mov rax,1 ; TODO expr result\n"
+            asm = asm + "  mov rsp,rbp\n  pop rbp\n  ret\n"
+        }
+    }
+
+    asm = asm + "  mov rsp,rbp\n  pop rbp\n"
+    asm = asm + "  mov rax,60\n  xor rdi,rdi\n  syscall\n"
+    return asm
+}
+
+; --------------------------------------------
+; DRIVER
+; --------------------------------------------
+
+Prog main() {
+    let src = io.readFile("program.ps")
+
+    let tokens = tokenize(src)
+    Print ["[Lexer] " + tokens]
+
+    let ast = parse(tokens)
+    Print ["[Parser] AST built"]
+
+    let llvm = codegen_llvm(ast)
+    io.writeFile("program.ll", llvm)
+
+    let asm = codegen_nasm(ast)
+    io.writeFile("program.asm", asm)
+
+    Print ["[Codegen] program.ll + program.asm generated"]
+}
+end
+
+; ============================================
+; PlasmaScript Compiler v6
+; ============================================
+; Features:
+;  - Lexer / Tokenizer
+;  - Expression parser (operator precedence)
+;  - AST for variables, functions, if/else, loops
+;  - Scoped symbol tables (block-local vars)
+;  - LLVM IR backend
+;  - NASM x64 backend
+; ============================================
+
+Import "io"
+Import "string"
+Import "list"
+
+; --------------------------------------------
+; TOKENIZER
+; --------------------------------------------
+
+Func tokenize(source: text) {
+    let tokens = []
+    let current = ""
+
+    for ch in source {
+        if ch == " " or ch == "\n" or ch == "\t" {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+        } else if ch in ["{","}","(",")","[","]","+","-","*","/","=","<",">",":",".",","] {
+            if current != "" {
+                tokens.append(current)
+                current = ""
+            }
+            tokens.append(ch)
+        } else {
+            current = current + ch
+        }
+    }
+
+    if current != "" {
+        tokens.append(current)
+    }
+
+    return tokens
+}
+
+; --------------------------------------------
+; EXPRESSION PARSER (Shunting Yard → RPN AST)
+; --------------------------------------------
+
+Func parse_expression(tokens: list, start: number) {
+    let output = []
+    let ops = []
+    let i = start
+
+    Func precedence(op) {
+        if op == "*" or op == "/" { return 2 }
+        if op == "+" or op == "-" { return 1 }
+        return 0
+    }
+
+    while i < len(tokens) and tokens[i] not in [";","}",")","]"] {
+        let tok = tokens[i]
+        if tok.isdigit() or tok.isalpha() {
+            output.append({type: "LiteralOrVar", value: tok})
+        } else if tok in ["+","-","*","/"] {
+            while len(ops) > 0 and precedence(ops[-1]) >= precedence(tok) {
+                output.append({type: "Op", value: ops.pop()})
+            }
+            ops.append(tok)
+        } else if tok == "(" {
+            ops.append(tok)
+        } else if tok == ")" {
+            while ops[-1] != "(" {
+                output.append({type: "Op", value: ops.pop()})
+            }
+            ops.pop()
+        }
+        i = i + 1
+    }
+
+    while len(ops) > 0 {
+        output.append({type: "Op", value: ops.pop()})
+    }
+
+    return {ast: output, next: i}
+}
+
+; --------------------------------------------
+; PARSER (Blocks, If/Else, Loops, Functions)
+; --------------------------------------------
+
+Func parse(tokens: list) {
+    let ast = []
+    let i = 0
+
+    while i < len(tokens) {
+        let tok = tokens[i]
+
+        if tok == "Prog" or tok == "Main" {
+            ast.append({type: "ProgramStart"})
+        } else if tok == "end" or tok == "run" {
+            ast.append({type: "ProgramEnd"})
+
+        ; Blocks
+        } else if tok == "{" {
+            ast.append({type: "BlockStart"})
+        } else if tok == "}" {
+            ast.append({type: "BlockEnd"})
+
+        ; Variable assignment
+        } else if tok == "let" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 2
+            let parsed = parse_expression(tokens, i)
+            ast.append({type: "AssignExpr", name: name, expr: parsed.ast})
+            i = parsed.next - 1
+
+        ; Print
+        } else if tok == "Print" {
+            i = i + 1
+            ast.append({type: "Print", value: tokens[i]})
+
+        ; If/Else
+        } else if tok == "if" {
+            i = i + 1
+            let parsed = parse_expression(tokens, i)
+            ast.append({type: "IfStart", cond: parsed.ast})
+            i = parsed.next - 1
+        } else if tok == "else" {
+            ast.append({type: "Else"})
+
+        ; For [x..y]
+        } else if tok == "for" {
+            i = i + 1
+            let varname = tokens[i]
+            i = i + 2 ; skip "in"
+            i = i + 1 ; skip "["
+            let start = tokens[i]
+            i = i + 2 ; skip ".."
+            let endv = tokens[i]
+            i = i + 1 ; skip "]"
+            ast.append({type: "ForLoop", var: varname, start: start, end: endv})
+
+        ; Function declaration
+        } else if tok == "Func" {
+            i = i + 1
+            let name = tokens[i]
+            i = i + 1
+            let args = []
+            while tokens[i] != ")" {
+                args.append(tokens[i])
+                i = i + 1
+            }
+            ast.append({type: "FunctionDecl", name: name, args: args})
+
+        ; Return expression
+        } else if tok == "return" {
+            i = i + 1
+            let parsed = parse_expression(tokens, i)
+            ast.append({type: "ReturnExpr", expr: parsed.ast})
+            i = parsed.next - 1
+
+        ; Function calls
+        } else if tok not in ["{","}","(",")","[","]"] {
+            if i+1 < len(tokens) and tokens[i+1] == "(" {
+                let callname = tok
+                i = i + 2
+                let args = []
+                while tokens[i] != ")" {
+                    args.append(tokens[i])
+                    i = i + 1
+                }
+                ast.append({type: "FunctionCall", name: callname, args: args})
+            }
+        }
+
+        i = i + 1
+    }
+
+    return ast
+}
+
+; --------------------------------------------
+; LLVM CODEGEN (with Scoped Variables)
+; --------------------------------------------
+
+Func codegen_llvm(ast: list) {
+    let ir = ""
+    ir = ir + "declare i32 @puts(i8*)\n"
+    ir = ir + "define i32 @main() {\n"
+
+    let tmp = 0
+    let varmap_stack = [ {} ]
+
+    Func fresh() {
+        tmp = tmp + 1
+        return "%t" + tmp
+    }
+
+    Func lookup(name) {
+        for s in reversed(varmap_stack) {
+            if name in s { return s[name] }
+        }
+        return name
+    }
+
+    Func lower_expr(expr: list) {
+        let stack = []
+        for t in expr {
+            if t.type == "LiteralOrVar" {
+                stack.append(lookup(t.value))
+            } else if t.type == "Op" {
+                let b = stack.pop()
+                let a = stack.pop()
+                let r = fresh()
+                if t.value == "+" {
+                    ir = ir + "  " + r + " = add i32 " + a + ", " + b + "\n"
+                } else if t.value == "-" {
+                    ir = ir + "  " + r + " = sub i32 " + a + ", " + b + "\n"
+                } else if t.value == "*" {
+                    ir = ir + "  " + r + " = mul i32 " + a + ", " + b + "\n"
+                } else if t.value == "/" {
+                    ir = ir + "  " + r + " = sdiv i32 " + a + ", " + b + "\n"
+                }
+                stack.append(r)
+            }
+        }
+        return stack[-1]
+    }
+
+    for node in ast {
+        if node.type == "BlockStart" {
+            varmap_stack.append({})
+        } else if node.type == "BlockEnd" {
+            varmap_stack.pop()
+
+        } else if node.type == "AssignExpr" {
+            let slot = fresh()
+            varmap_stack[-1][node.name] = slot
+            ir = ir + "  " + slot + " = alloca i32\n"
+            let res = lower_expr(node.expr)
+            ir = ir + "  store i32 " + res + ", i32* " + slot + "\n"
+
+        } else if node.type == "Print" {
+            ir = ir + "  call i32 @puts(i8* c\"" + node.value + "\\00\")\n"
+
+        } else if node.type == "ReturnExpr" {
+            let res = lower_expr(node.expr)
+            ir = ir + "  ret i32 " + res + "\n}\n"
+        }
+    }
+
+    ir = ir + "  ret i32 0\n}\n"
+    return ir
+}
+
+; --------------------------------------------
+; NASM CODEGEN (simplified but scoped)
+; --------------------------------------------
+
+Func codegen_nasm(ast: list) {
+    let asm = "section .data\nmsg0: db \"Hello\",0\n"
+    asm = asm + "section .text\nglobal _start\n_start:\n"
+    asm = asm + "  push rbp\n  mov rbp,rsp\n"
+
+    let varmap_stack = [ {} ]
+    let varoff = 0
+
+    for node in ast {
+        if node.type == "BlockStart" {
+            varmap_stack.append({})
+        } else if node.type == "BlockEnd" {
+            varmap_stack.pop()
+
+        } else if node.type == "AssignExpr" {
+            varoff = varoff + 8
+            varmap_stack[-1][node.name] = "[rbp-" + varoff + "]"
+            asm = asm + "  mov qword " + varmap_stack[-1][node.name] + ", 1 ; TODO expr\n"
+
+        } else if node.type == "Print" {
+            asm = asm + "  mov rax,1\n  mov rdi,1\n  mov rsi,msg0\n  mov rdx,5\n  syscall\n"
+
+        } else if node.type == "ReturnExpr" {
+            asm = asm + "  mov rax,1 ; TODO expr result\n"
+            asm = asm + "  mov rsp,rbp\n  pop rbp\n  ret\n"
+        }
+    }
+
+    asm = asm + "  mov rsp,rbp\n  pop rbp\n"
+    asm = asm + "  mov rax,60\n  xor rdi,rdi\n  syscall\n"
+    return asm
+}
+
+; --------------------------------------------
+; DRIVER
+; --------------------------------------------
+
+Prog main() {
+    let src = io.readFile("program.ps")
+
+    let tokens = tokenize(src)
+    Print ["[Lexer] " + tokens]
+
+    let ast = parse(tokens)
+    Print ["[Parser] AST built"]
+
+    let llvm = codegen_llvm(ast)
+    io.writeFile("program.ll", llvm)
+
+    let asm = codegen_nasm(ast)
+    io.writeFile("program.asm", asm)
+
+    Print ["[Codegen] program.ll + program.asm generated"]
+}
+end
