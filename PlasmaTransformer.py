@@ -40,3 +40,9 @@ class PlasmaTransformer(Transformer):
     def func_call(self, items):
         return CallNode(str(items[0]), items[1:])
 
+class PlasmaTransformer(Transformer):
+    def func_call(self, items):
+        func = items[0]   # can be NAME (VarNode) or inline expr
+        args = items[1:]
+        return CallNode(func, args)
+
