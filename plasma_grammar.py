@@ -163,3 +163,12 @@ NUMBER: /\d+/
 %ignore WS
 """
 
+?expr: atom
+     | expr OP expr   -> binop
+     | "-" expr       -> neg
+     | func_call
+     | tuple_lit
+     | lambda_expr
+
+lambda_expr: "Func" "(" [params] ")" block
+
