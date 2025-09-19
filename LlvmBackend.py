@@ -250,3 +250,35 @@ class LLVMBackend:
             addr = self.builder.gep(ptr, [offset])
             return self.builder.load(addr)
 
+class LLVMBackend:
+    def _declare_memory_lib(self):
+        # malloc/free
+        malloc_ty = ir.FunctionType(ir.IntType(8).as_pointer(), [ir.IntType(64)])
+        self.malloc = ir.Function(self.module, malloc_ty, name="malloc")
+        free_ty = ir.FunctionType(ir.VoidType(), [ir.IntType(8).as_pointer()])
+        self.free = ir.Function(self.module, free_ty, name="free")
+
+    def _eval_expr(self, expr):
+        # Arena
+        if isinstance(expr, ArenaInitNode):
+            size = self._eval_expr(expr.size)
+            return self.builder.call(self.malloc, [self.builder.sext(size, ir.IntType(64))])
+        if isinstance(expr, ArenaResetNode):
+            ptr = self._eval_expr(expr.ptr)
+            self.builder.call(self.free, [ptr])
+            return ir.Constant(ir.IntType(32), 0)
+        # Refcounted objects
+        if isinstance(expr, RcAllocNode):
+            size = self._eval_expr(expr.size)
+            raw = self.builder.call(self.malloc, [self.builder.sext(size, ir.IntType(64))])
+            # prepend 4-byte refcount
+            return raw
+        if isinstance(expr, RetainNode):
+            ptr = self._eval_expr(expr.ptr)
+            # increment [ptr-4]
+            return ir.Constant(ir.IntType(32), 0)
+        if isinstance(expr, ReleaseNode):
+            ptr = self._eval_expr(expr.ptr)
+            # decrement [ptr-4], free if 0
+            return ir.Constant(ir.IntType(32), 0)
+
