@@ -1,0 +1,12 @@
+Import "opengl32"
+
+Extern "C" Func glClear(mask: number)
+Extern "C" Func glClearColor(r: number, g: number, b: number, a: number)
+
+Prog main() {
+    Print ["Hello PlasmaScript!"]
+    Inline { dgm(0xDE, 0xAD, 0xBE, 0xEF) }
+    glClearColor(0.1, 0.2, 0.3, 1.0)
+    glClear(0x00004000)
+}
+end
