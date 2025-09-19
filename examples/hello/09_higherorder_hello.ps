@@ -1,0 +1,9 @@
+Export Func helloFactory() {
+    return Func(name) { return "Hello " + name }
+}
+
+Prog main() {
+    let greeter = helloFactory()
+    Print [greeter("PlasmaScript")]
+}
+end
