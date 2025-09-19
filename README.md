@@ -772,4 +772,46 @@ Compiles → `.wasm` that can be imported into JS with async `fetch`.
 
 ---
 
-⚡ 
+⚡ Proper use:
+
+To download, install, set up, and use PlasmaScript from https://github.com/JoeySoprano420/PlasmaScript:
+
+**1. Download**
+- Go to the PlasmaScript GitHub repo main page.
+- Click the green “Code” button, then “Download ZIP” to get the source files, or clone it with:
+  ```
+  git clone https://github.com/JoeySoprano420/PlasmaScript.git
+  ```
+
+**2. Install**
+- PlasmaScript is designed as a compiled language (not a Python package), so you’re looking for its compiler (`plasmascriptc`) in the repo.
+- Check for a build script, executable, or install instructions in the repo. If not present, you may need to compile the compiler from source using Python or another build tool depending on the repo’s structure.
+
+**3. Setup**
+- PlasmaScript source files have a `.ps` extension.
+- The compiler (`plasmascriptc`) can compile `.ps` files to executables, DLLs, or WASM modules using commands like:
+  ```
+  plasmascriptc program.ps -target exe -o program.exe
+  plasmascriptc module.ps -target dll -o module.dll
+  plasmascriptc script.ps -target wasm -o script.wasm
+  ```
+- There may also be a REPL for interactive scripting.
+
+**4. Use**
+- Write your PlasmaScript code in `.ps` files. Example Hello World:
+  ```
+  Prog main() {
+      Print ["Hello PlasmaScript!"]
+  }
+  end
+  ```
+- Compile using the compiler as described above.
+- PlasmaScript supports advanced features: functions, closures, manual memory management, FFI/ABI bindings for C/OpenGL/Vulkan/Unity/Unreal, inline assembly, and more.
+- You can import external libraries:
+  ```
+  Import "opengl32"
+  ```
+- Use the REPL (if available) or run compiled executables directly.
+
+**Summary:**  
+Download the repo, locate or build the compiler (`plasmascriptc`), write your `.ps` code, and use the compiler to build/run your programs. PlasmaScript is intended for both creative scripting and hardcore systems programming, with extensive interoperability and compilation options. Check the README in the repo for further details and example programs.
