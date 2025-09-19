@@ -129,3 +129,31 @@ class LLVMBackend:
             args = [self._eval_expr(a) for a in expr.args]
             return self.builder.call(self.funcs[expr.name], args)
 
+class LLVMBackend:
+    def __init__(self, ast):
+        self.ast = ast
+        self.module = ir.Module(name="plasmascript")
+        self.printf = None
+        self.funcs = {}
+        self.locals = {}
+        self.builder = None
+
+    def _declare_func(self, node):
+        fnty = ir.FunctionType(ir.IntType(32), [ir.IntType(32)]*len(node.params))
+        fn = ir.Function(self.module, fnty, name=node.name)
+        if node.export: fn.attributes.add("dllexport")
+        self.funcs[node.name] = fn
+        return fn
+
+    def _eval_expr(self, expr):
+        # … literals, binops …
+        if isinstance(expr, VarNode):
+            if expr.name in self.locals:
+                return self.builder.load(self.locals[expr.name], expr.name)
+            elif expr.name in self.funcs:
+                return self.funcs[expr.name]  # function pointer
+        if isinstance(expr, CallNode):
+            callee = self._eval_expr(expr.func)
+            args = [self._eval_expr(a) for a in expr.args]
+            return self.builder.call(callee, args)
+
