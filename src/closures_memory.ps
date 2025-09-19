@@ -1,0 +1,21 @@
+Prog main() {
+    let base = 10
+
+    let makeAdder = Func(x) {
+        let env = malloc(8)
+        store(env, 0, x)
+        store(env, 4, base)
+
+        return Func(y) {
+            let xv = load(env, 0)
+            let bv = load(env, 4)
+            return xv + y + bv
+        }
+    }
+
+    let add5 = makeAdder(5)
+    Print [add5(3)]   ; prints 18
+
+    ; free(env) would be called when done
+}
+end
