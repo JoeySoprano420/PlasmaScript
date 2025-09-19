@@ -217,3 +217,177 @@ end
 
 ---
 
+⚡**PlasmaScript** to evolve from an interpreted VM into a **full AOT-compiled systems language** with:
+
+* **Complete ABI + FFI** (foreign function interface)
+* **ISA mappings** (down to CPU instructions)
+* **Interop APIs** for OpenGL, Vulkan, DirectX, Unreal Engine, Unity
+* **Imports/Exports** for shared libraries
+* **Inlining of Dodecagram (base-12)** opcodes
+* **Exposure to/from WebAssembly + HTTPS**
+* **AOT compiler → `.exe` output**
+
+---
+
+# 🚀 PlasmaScript AOT Compiler Design
+
+Here’s the blueprint to take PlasmaScript from VM → real `.exe` output:
+
+---
+
+## 1. **Frontend (Parsing + IR)**
+
+* **Grammar**: Already defined (PlasmaScript syntax + comprehensions, functions, etc.)
+* **AST**: Enriched with:
+
+  * Function signatures (name, params, return type)
+  * Imports/exports
+  * FFI/ABI declarations (`Extern "C"`, `import lib` etc.)
+  * Inline assembly / Dodecagram segments
+
+### Example PlasmaScript FFI
+
+```plasmascript
+Import "opengl32"
+
+Extern "C" Func glClear(mask: number)
+Extern "C" Func glBegin(mode: number)
+Extern "C" Func glEnd()
+
+Func draw() {
+    glClear(0x00004000)
+    glBegin(0x0004)
+    glEnd()
+}
+```
+
+---
+
+## 2. **Intermediate Representation (Dodecagram IR)**
+
+We introduce **DGIR (Dodecagram IR)**, a 12-base opcode stream mapping directly to:
+
+* **LLVM IR** (for portability to `.exe`, `.wasm`, `.dylib`)
+* **NASM x64** (for raw `.exe` + ISA exposure)
+
+**Dodecagram Mapping (0-3, a, b)**
+
+| Symbol | Meaning          | Example |
+| ------ | ---------------- | ------- |
+| `0`    | Load const       | `0 idx` |
+| `1`    | Load var         | `1 reg` |
+| `2`    | Store var        | `2 reg` |
+| `3`    | Call function    | `3 f`   |
+| `a`    | Inline sys call  | `a id`  |
+| `b`    | Inline wasm call | `b id`  |
+
+---
+
+## 3. **Backend (AOT Compilation)**
+
+The backend supports multiple lowering targets:
+
+1. **LLVM → MSVC/Clang → `.exe`**
+
+   * Generates real object files, links to system libraries (`opengl32.lib`, `vulkan-1.lib`, `d3d11.lib`, `Unreal.lib`, `UnityNative.lib`).
+2. **NASM x64 Direct Emitter**
+
+   * Direct `.asm` → `nasm` → `.exe` for minimal runtime.
+3. **WASM Export**
+
+   * Compiles PlasmaScript modules to `.wasm` with `import/export`.
+4. **HTTPS/Interop**
+
+   * Built-in standard library bindings for HTTP(S) requests (like `fetch`).
+
+---
+
+## 4. **Interop Libraries**
+
+* **OpenGL**: `Import "opengl32"` → resolves symbols via system loader.
+* **Vulkan**: `Import "vulkan-1"` → bindings generated at compile.
+* **DirectX**: `Import "d3d11"` → COM interface bridging.
+* **Unreal/Unity**:
+
+  * Export PlasmaScript modules as `.dll` with `extern "C"` entry points.
+  * Unity: call via `DllImport` in C#.
+  * Unreal: bind via plugin module.
+
+---
+
+## 5. **Inlining Dodecagrams**
+
+### Example
+
+```plasmascript
+Inline {
+    dgm(0xA1, 0xB2, 0x00)
+}
+```
+
+Generates raw NASM instructions or LLVM inline assembly.
+
+---
+
+## 6. **AOT Pipeline**
+
+```bash
+plasmascriptc hello.ps -target exe -o hello.exe
+plasmascriptc game.ps -target wasm -o game.wasm
+plasmascriptc engine.ps -target dll -o engine.dll
+```
+
+---
+
+## 7. **Example: OpenGL PlasmaScript Program**
+
+```plasmascript
+Import "opengl32"
+
+Extern "C" Func glClear(mask: number)
+Extern "C" Func glClearColor(r: number, g: number, b: number, a: number)
+
+Prog main() {
+    glClearColor(0.2, 0.3, 0.3, 1.0)
+    glClear(0x00004000)
+}
+end
+```
+
+Compiles → `.exe` that links against `opengl32.lib` and runs natively.
+
+---
+
+## 8. **WASM + HTTPS Example**
+
+```plasmascript
+Import "https"
+
+let resp = Fetch("https://example.com/data.json")
+Print [resp]
+```
+
+Compiles → `.wasm` that can be imported into JS with async `fetch`.
+
+---
+
+## 9. **Libraries + API Dictionary**
+
+* **Standard**: strings, lists, dicts, sets, math, io
+* **Interop**: opengl, vulkan, directx, unreal, unity
+* **Networking**: http, https, ws
+* **System**: file, process, threads
+* **Dodecagram**: `dgm()` inline low-level
+
+---
+
+✅ With this design:
+
+* PlasmaScript is **a compiled language with VM + AOT compiler**
+* Exposes **ABI/FFI** to every major runtime
+* Can inline **DGIR (dodecagram base-12)**
+* Exports `.exe`, `.dll`, `.wasm`, `.so`
+
+---
+
+⚡ 
