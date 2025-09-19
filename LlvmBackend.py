@@ -157,3 +157,35 @@ class LLVMBackend:
             args = [self._eval_expr(a) for a in expr.args]
             return self.builder.call(callee, args)
 
+class LLVMBackend:
+    def _eval_expr(self, expr):
+        if isinstance(expr, LambdaNode):
+            # Step 1: declare anonymous function
+            fnty = ir.FunctionType(ir.IntType(32), [ir.IntType(32)]*len(expr.params))
+            fn = ir.Function(self.module, fnty, name=f"lambda_{id(expr)}")
+            block = fn.append_basic_block("entry")
+            builder = ir.IRBuilder(block)
+
+            # Step 2: store captured vars
+            captures = {}
+            for i, name in enumerate(expr.captures):
+                if name in self.locals:
+                    captures[name] = self.locals[name]
+
+            # Step 3: generate body
+            local_map = {}
+            for i, arg in enumerate(fn.args):
+                ptr = builder.alloca(ir.IntType(32), name=expr.params[i])
+                builder.store(arg, ptr)
+                local_map[expr.params[i]] = ptr
+            # simple return body
+            for stmt in expr.body.children:
+                if isinstance(stmt, ReturnNode):
+                    val = self._eval_expr(stmt.expr)
+                    builder.ret(val)
+            if not block.is_terminated:
+                builder.ret(ir.Constant(ir.IntType(32), 0))
+
+            # Step 4: return fn pointer as closure (no heap object yet)
+            return fn
+
