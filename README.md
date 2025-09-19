@@ -815,3 +815,1227 @@ To download, install, set up, and use PlasmaScript from https://github.com/JoeyS
 
 **Summary:**  
 Download the repo, locate or build the compiler (`plasmascriptc`), write your `.ps` code, and use the compiler to build/run your programs. PlasmaScript is intended for both creative scripting and hardcore systems programming, with extensive interoperability and compilation options. Check the README in the repo for further details and example programs.
+
+## ``` Documentation
+
+
+
+---
+
+# 🐣 Part 1: The Simplest Program
+
+Every language needs a “Hello World.” In PlasmaScript, there are **many ways** to say it, but here’s the simplest:
+
+```plasmascript
+Prog main() {
+    Print ["Hello PlasmaScript!"]
+}
+end
+```
+
+**What this means:**
+
+* `Prog main()` = “Start my program here.”
+* `{ ... }` = The stuff inside happens when the program runs.
+* `Print [...]` = Show text on the screen.
+* `end` = Stop the program.
+
+When you run this, the computer says:
+
+```
+Hello PlasmaScript!
+```
+
+---
+
+# ✏️ Part 2: Talking to the Computer
+
+You can store words or numbers in **variables** (like a labeled box).
+
+```plasmascript
+Prog main() {
+    let name = "Shay"
+    let age = 25
+    Print ["My name is " + name]
+    Print ["I am " + age]
+}
+end
+```
+
+👉 `let` means “create a new box and put something in it.”
+
+* `name` holds text `"Shay"`.
+* `age` holds the number `25`.
+* `+` glues text together.
+
+---
+
+# 🔄 Part 3: Decisions (If/Else)
+
+Programs can **decide** things:
+
+```plasmascript
+Prog main() {
+    let user = "Shay"
+
+    if user == "Shay" {
+        Print ["Welcome back!"]
+    } else {
+        Print ["Hello, stranger."]
+    }
+}
+end
+```
+
+👉 If the condition (`user == "Shay"`) is true, it runs the first block. Otherwise, it runs the `else` block.
+
+---
+
+# 🔁 Part 4: Loops
+
+Loops repeat things automatically.
+
+```plasmascript
+Prog main() {
+    let names = ["Ana", "Ben", "Clara"]
+
+    for n in names {
+        Print ["Hello " + n]
+    }
+}
+end
+```
+
+👉 This greets every name in the list.
+Output:
+
+```
+Hello Ana
+Hello Ben
+Hello Clara
+```
+
+---
+
+# 🧩 Part 5: Functions
+
+Functions are **mini-programs inside your program**.
+
+```plasmascript
+Func greet(name) {
+    Print ["Hello " + name]
+}
+
+Prog main() {
+    greet("Shay")
+    greet("Ana")
+}
+end
+```
+
+
+
+---
+
+# 🌀 Part 6: Returning Values
+
+A function can **give something back** using `return`.
+
+```plasmascript
+Func add(a, b) {
+    return a + b
+}
+
+Prog main() {
+    let result = add(6, 7)
+    Print ["The sum is " + result]
+}
+end
+```
+
+Output:
+
+```
+The sum is 13
+```
+
+---
+
+# 🎭 Part 7: Anonymous Functions (Lambdas)
+
+You don’t always need to give a function a name — sometimes you just want one on the spot:
+
+```plasmascript
+Prog main() {
+    let square = Func(x) { return x * x }
+    Print [square(5)]
+}
+end
+```
+
+Output: `25`
+
+---
+
+# 📚 Part 8: Collections
+
+PlasmaScript has handy data structures:
+
+* **List**: `[1,2,3]`
+* **Tuple**: `(x,y)`
+* **Dict** (dictionary): `{name: "Shay", age: 25}`
+* **Set**: `{1,2,3}`
+
+And **comprehensions** let you build them fast:
+
+```plasmascript
+Prog main() {
+    let nums = [x*x for x in [1,2,3,4,5]]
+    Print [nums]
+}
+end
+```
+
+Output: `[1,4,9,16,25]`
+
+---
+
+# ⚙️ Part 9: Memory (Advanced)
+
+You can even **talk to memory directly** if you want full control:
+
+```plasmascript
+Prog main() {
+    let ptr = malloc(32)      ; reserve space
+    store(ptr, 0, 42)         ; put 42 in the first slot
+    Print [load(ptr, 0)]      ; read it back
+    free(ptr)                 ; release it
+}
+end
+```
+
+👉 This is for advanced users (like in C or C++), but PlasmaScript makes it available.
+
+---
+
+# 🌐 Part 10: Talking to Other Languages
+
+PlasmaScript can **call C functions** or graphics libraries like OpenGL:
+
+```plasmascript
+Import "opengl32"
+
+Extern "C" Func glClear(mask: number)
+
+Prog main() {
+    Print ["Clearing screen..."]
+    glClear(0x00004000)
+}
+end
+```
+
+This lets PlasmaScript power **games, graphics, and scientific apps**.
+
+---
+
+# 🚀 How to Think About PlasmaScript
+
+* Like **Python**: readable, beginner-friendly, flexible.
+* Like **C**: compiled, fast, with manual memory control if you need it.
+* Like **Rust/Go**: modern, safe features (arenas, refcount, managed allocators).
+* Like **JS**: closures, lambdas, functional style.
+
+It’s both **fun for beginners** and **serious for professionals**.
+
+---
+
+# ✅ Summary
+
+As a **beginner**, the big things to remember:
+
+1. **`Prog main() { ... } end`** is where your program starts.
+2. **`Print [...]`** shows stuff on screen.
+3. **`let`** makes variables (boxes for storing things).
+4. **Functions** let you organize and reuse code.
+5. **If / for** = decisions and loops.
+6. Advanced users can control **memory, interop, and performance**.
+
+---
+
+
+
+
+---
+
+# 📘 PlasmaScript Beginner’s Workbook
+
+---
+
+## 🟢 Lesson 1: Your First Program
+
+👉 Every program starts with `Prog main() { ... } end`.
+
+```plasmascript
+Prog main() {
+    Print ["Hello PlasmaScript!"]
+}
+end
+```
+
+When you run this, the computer prints:
+
+```
+Hello PlasmaScript!
+```
+
+✅ **Exercise 1.1**
+
+* Change the message to say your name.
+* Try writing it using the alternative form:
+
+```plasmascript
+Main main() {
+    Print ["Hello World!"]
+}
+run
+```
+
+---
+
+## 🟢 Lesson 2: Variables
+
+Variables are like **boxes** that hold information.
+
+```plasmascript
+Prog main() {
+    let name = "Shay"
+    let age = 25
+    Print ["Name: " + name]
+    Print ["Age: " + age]
+}
+end
+```
+
+✅ **Exercise 2.1**
+
+* Create a variable called `city`.
+* Print a sentence like: *"I live in London."*
+
+---
+
+## 🟢 Lesson 3: Decisions
+
+Programs can make **choices** with `if` and `else`.
+
+```plasmascript
+Prog main() {
+    let mood = "happy"
+
+    if mood == "happy" {
+        Print ["Keep smiling!"]
+    } else {
+        Print ["Cheer up!"]
+    }
+}
+end
+```
+
+✅ **Exercise 3.1**
+
+* Write a program that checks if `age` is **18 or more**.
+* Print `"Adult"` if true, otherwise `"Child"`.
+
+---
+
+## 🟢 Lesson 4: Loops
+
+Loops let you **repeat** actions.
+
+```plasmascript
+Prog main() {
+    let names = ["Ana", "Ben", "Clara"]
+
+    for n in names {
+        Print ["Hello " + n]
+    }
+}
+end
+```
+
+✅ **Exercise 4.1**
+
+* Make a list of 5 numbers.
+* Print each number on a new line.
+
+---
+
+## 🟢 Lesson 5: Functions
+
+Functions are **mini-programs** inside your program.
+
+```plasmascript
+Func greet(name) {
+    Print ["Hello " + name]
+}
+
+Prog main() {
+    greet("Shay")
+    greet("Ana")
+}
+end
+```
+
+✅ **Exercise 5.1**
+
+* Write a function called `square(x)` that returns `x * x`.
+* Print the square of 5.
+
+---
+
+## 🟢 Lesson 6: Returning Values
+
+Functions can **give back answers** with `return`.
+
+```plasmascript
+Func add(a, b) {
+    return a + b
+}
+
+Prog main() {
+    Print [add(6, 7)]
+}
+end
+```
+
+✅ **Exercise 6.1**
+
+* Write a function called `subtract(a, b)`.
+* Print `subtract(10, 3)`.
+
+---
+
+## 🟢 Lesson 7: Lambdas (Anonymous Functions)
+
+Quick **one-time functions**:
+
+```plasmascript
+Prog main() {
+    let square = Func(x) { return x * x }
+    Print [square(4)]
+}
+end
+```
+
+✅ **Exercise 7.1**
+
+* Make a lambda called `double` that doubles a number.
+* Print `double(8)`.
+
+---
+
+## 🟢 Lesson 8: Collections
+
+You can make **lists, sets, dicts, and tuples**.
+
+```plasmascript
+Prog main() {
+    let squares = [x*x for x in [1,2,3,4,5]]
+    Print [squares]
+}
+end
+```
+
+Output: `[1,4,9,16,25]`
+
+✅ **Exercise 8.1**
+
+* Make a list of names.
+* Build a list `[ "Hello " + n for n in names ]`.
+* Print it.
+
+---
+
+## 🟢 Lesson 9: Memory (Advanced but Fun)
+
+PlasmaScript lets you peek under the hood:
+
+```plasmascript
+Prog main() {
+    let ptr = malloc(16)       ; reserve 16 bytes
+    store(ptr, 0, 42)          ; save a value
+    Print [load(ptr, 0)]       ; read it back
+    free(ptr)                  ; clean up
+}
+end
+```
+
+✅ **Exercise 9.1**
+
+* Allocate memory.
+* Store the number `99`.
+* Print it.
+
+---
+
+## 🟢 Lesson 10: Talking to the Outside World
+
+PlasmaScript can call **other languages** like C or graphics libraries.
+
+```plasmascript
+Import "opengl32"
+
+Extern "C" Func glClear(mask: number)
+
+Prog main() {
+    Print ["Screen cleared!"]
+    glClear(0x00004000)
+}
+end
+```
+
+✅ **Exercise 10.1**
+
+* Write your own `Extern` function declaration for C’s `puts(text)`.
+* Call it to print `"Plasma FFI works!"`.
+
+---
+
+# 🎓 Graduation Project
+
+Build a **tiny calculator**:
+
+```plasmascript
+Func add(a, b) { return a + b }
+Func sub(a, b) { return a - b }
+Func mul(a, b) { return a * b }
+Func div(a, b) { return a / b }
+
+Prog main() {
+    Print ["2 + 3 = " + add(2,3)]
+    Print ["10 - 4 = " + sub(10,4)]
+    Print ["6 * 7 = " + mul(6,7)]
+    Print ["20 / 5 = " + div(20,5)]
+}
+end
+```
+
+✅ Try adding more operations (like modulus `%`) or extend it to read user input!
+
+---
+
+# ✨ Wrap-Up
+
+* PlasmaScript is **easy to read**, like writing notes to yourself.
+* It gives you **Python-like simplicity** *and* **C-like power**.
+* Start with simple `Print` statements.
+* Work up to loops, functions, lambdas, and interop.
+* You can make **games, graphics, tools, or scientific apps** once you’re ready.
+
+---
+
+
+
+---
+
+# 🔑 Entry Keywords: `Prog` vs `Main`
+
+Both mean: *“Start my program here.”*
+
+* **`Prog`** = short for **Program**.
+
+  * Feels like a **technical keyword**, used when you’re writing in a formal or canonical style.
+  * Example:
+
+    ```plasmascript
+    Prog main() {
+        Print ["Hello PlasmaScript!"]
+    }
+    end
+    ```
+
+* **`Main`** = short for **Main function**.
+
+  * Feels like **natural English**, or a looser, conversational style.
+  * Example:
+
+    ```plasmascript
+    Main main() {
+        Print ["Hello PlasmaScript!"]
+    }
+    run
+    ```
+
+👉 In practice, they are **synonyms**. PlasmaScript accepts either.
+It’s about **style choice**:
+
+* Use **`Prog`** when you want to emphasize *the whole program starts here*.
+* Use **`Main`** when you want it to feel more like *this is the main function*.
+
+---
+
+# 🔑 Exit Keywords: `end` vs `run`
+
+Both mean: *“That’s the end of my program.”*
+
+* **`end`** = **formal closure**.
+
+  * Fits with `Prog`.
+  * Feels like closing a book.
+  * Example:
+
+    ```plasmascript
+    Prog main() {
+        Print ["Hello PlasmaScript!"]
+    }
+    end
+    ```
+
+* **`run`** = **executive closure**.
+
+  * Fits with `Main`.
+  * Feels like you’re pressing the “go” button.
+  * Example:
+
+    ```plasmascript
+    Main main() {
+        Print ["Hello PlasmaScript!"]
+    }
+    run
+    ```
+
+👉 Again, they are **interchangeable**. PlasmaScript lets you pick the one that *feels right for your code’s style*.
+
+---
+
+# 🎨 Why Both Exist
+
+This was an intentional design choice:
+
+* Some developers like **formal, structured syntax** → `Prog … end`.
+* Some like **lightweight, conversational syntax** → `Main … run`.
+
+It’s like having **two dialects** of the same language:
+
+* **Formal dialect** (for engineers, compilers, technical docs).
+* **Poetic dialect** (for creative coders, artists, or scripting contexts).
+
+---
+
+# ✅ Summary
+
+* **`Prog`** and **`Main`** both start the program.
+* **`end`** and **`run`** both finish it.
+* They’re **synonyms**, but carry different *flavors*:
+
+  * `Prog … end` = formal, structured.
+  * `Main … run` = conversational, lightweight.
+
+---
+
+
+
+---
+
+# 📜 PlasmaScript Program Entry/Exit Forms
+
+PlasmaScript allows **two entry keywords** (`Prog`, `Main`) and **two exit keywords** (`end`, `run`).
+That makes **4 possible combos**:
+
+---
+
+## 1️⃣ `Prog … end` ✅ **Canonical Form**
+
+```plasmascript
+Prog main() {
+    Print ["Hello PlasmaScript!"]
+}
+end
+```
+
+* **Style**: Formal, structured, traditional.
+* **Use Case**: Teaching, documentation, production-ready code.
+* **Why**: Mirrors how many compiled languages (like C) use `main` and a strict `end`.
+* **Status**: **Primary canonical form**.
+
+---
+
+## 2️⃣ `Main … run` ✅ **Conversational Form**
+
+```plasmascript
+Main main() {
+    Print ["Hello PlasmaScript!"]
+}
+run
+```
+
+* **Style**: Lightweight, conversational, playful.
+* **Use Case**: Quick scripts, creative coding, demos.
+* **Why**: Reads like English: *“Main starts here… now run it.”*
+* **Status**: **Accepted canonical variant** (equal to `Prog … end`).
+
+---
+
+## 3️⃣ `Prog … run` ⚡ **Hybrid Shortcut**
+
+```plasmascript
+Prog main() {
+    Print ["Hello PlasmaScript!"]
+}
+run
+```
+
+* **Style**: Semi-formal hybrid.
+* **Use Case**: Allowed for flexibility, but rare in style guides.
+* **Why**: Sometimes users mix “start formally” with “finish conversationally.”
+* **Status**: **Valid but informal** — not preferred in official codebases.
+
+---
+
+## 4️⃣ `Main … end` ⚡ **Hybrid Shortcut**
+
+```plasmascript
+Main main() {
+    Print ["Hello PlasmaScript!"]
+}
+end
+```
+
+* **Style**: Semi-formal hybrid.
+* **Use Case**: Useful if you prefer `Main` but still want strict closure.
+* **Why**: Some users like `Main` but still think in terms of `end` blocks.
+* **Status**: **Valid but informal** — works fine, but style guides steer you to either #1 or #2.
+
+---
+
+# 🎨 Why This Duality Exists
+
+* PlasmaScript was designed to **welcome both beginners and professionals**.
+* **Beginners** feel comfortable with `Main … run` (like telling a story).
+* **Professionals** feel comfortable with `Prog … end` (like engineering precision).
+* Hybrids (`Prog … run` and `Main … end`) exist because the parser doesn’t force rigidity — they reflect the *flexible, humanistic* ethos of the language.
+
+---
+
+# ✅ Summary Table
+
+| Entry  | Exit  | Status         | Style          |
+| ------ | ----- | -------------- | -------------- |
+| `Prog` | `end` | Canonical      | Formal         |
+| `Main` | `run` | Canonical      | Conversational |
+| `Prog` | `run` | Valid (Hybrid) | Informal       |
+| `Main` | `end` | Valid (Hybrid) | Informal       |
+
+---
+
+
+
+---
+
+# 📜 PlasmaScript Hello World — All Four Forms
+
+| #     | Entry / Exit Form            | Example Code                                                          | Notes                                                                   |
+| ----- | ---------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **1** | `Prog … end` (**Canonical**) | `plasmascript Prog main() {     Print ["Hello PlasmaScript!"] } end ` | The **formal, structured** form. Used in docs, teaching, production.    |
+| **2** | `Main … run` (**Canonical**) | `plasmascript Main main() {     Print ["Hello PlasmaScript!"] } run ` | The **conversational** form. Friendly, poetic, great for quick scripts. |
+| **3** | `Prog … run` (Hybrid)        | `plasmascript Prog main() {     Print ["Hello PlasmaScript!"] } run ` | Works fine, but **mixes formal start with casual finish**.              |
+| **4** | `Main … end` (Hybrid)        | `plasmascript Main main() {     Print ["Hello PlasmaScript!"] } end ` | Works fine, but **mixes casual start with strict closure**.             |
+
+---
+
+# ⚖️ Why Style Guides Avoid the Hybrids
+
+Even though **all 4 are valid**, the hybrids are considered **stylistically inconsistent**:
+
+* 🔹 **`Prog … run`** → Starts formal, ends casual.
+
+  * Feels like starting a legal contract and ending with *“whatever, just go.”*
+  * Not “wrong,” but it makes code harder to scan for beginners.
+
+* 🔹 **`Main … end`** → Starts conversational, ends strict.
+
+  * Feels like starting a poem and ending with a bureaucratic stamp.
+  * Again, not wrong — just visually “off.”
+
+---
+
+## 🚦 Style Guide Principle
+
+PlasmaScript emphasizes **flow and readability**. Style guides prefer **consistent entry/exit pairs**:
+
+* If you want **formal precision** → use `Prog … end`.
+* If you want **poetic minimalism** → use `Main … run`.
+
+Mixing them is **allowed** (because the parser supports both), but it **creates mixed signals** for human readers — which is why style guides recommend sticking to one of the two canonical forms.
+
+---
+
+# ✅ Summary
+
+* **Canonical forms**: `Prog … end` (formal), `Main … run` (conversational).
+* **Hybrid forms**: valid, but stylistically discouraged.
+* Style guides avoid hybrids because they **reduce consistency**, which is important in team projects, teaching material, and professional codebases.
+
+---
+
+ 
+
+---
+
+# 📘 PlasmaScript Style Guide (Core Conventions)
+
+---
+
+## 1️⃣ Entry & Exit Forms
+
+PlasmaScript provides two **canonical pairs** and two **hybrids**.
+
+* ✅ **Preferred Canonical Forms**
+
+  * `Prog … end` → **formal, structured**
+  * `Main … run` → **conversational, lightweight**
+
+* ⚠️ **Allowed but Discouraged**
+
+  * `Prog … run`
+  * `Main … end`
+
+> **Rule of Thumb**: Pick one canonical form and use it consistently across your project.
+>
+> * Use `Prog … end` for libraries, production code, and teaching materials.
+> * Use `Main … run` for quick scripts, creative coding, and demos.
+
+---
+
+## 2️⃣ Naming Conventions
+
+### Variables
+
+* Use **lowercase\_with\_underscores** for variables.
+
+```plasmascript
+let user_name = "Shay"
+let total_score = 42
+```
+
+### Functions
+
+* Use **camelCase** for functions.
+
+```plasmascript
+Func greetUser(name) {
+    Print ["Hello " + name]
+}
+```
+
+### Types & Modules
+
+* Use **CapitalizedWords** (PascalCase).
+
+```plasmascript
+Import "Graphics"
+let window: Window = createWindow()
+```
+
+### Constants
+
+* Use **ALL\_CAPS** for constants.
+
+```plasmascript
+let PI = 3.14159
+```
+
+---
+
+## 3️⃣ Indentation & Braces
+
+* Always use **4 spaces** (no tabs).
+* Opening brace `{` goes on the **same line**.
+* Closing brace `}` goes on its **own line**.
+
+✅ Correct:
+
+```plasmascript
+Func add(a, b) {
+    return a + b
+}
+```
+
+❌ Incorrect:
+
+```plasmascript
+Func add(a, b)
+{
+return a+b}
+```
+
+---
+
+## 4️⃣ Print & Expressions
+
+* Always wrap `Print` arguments in square brackets `[...]`.
+* Use `+` for string concatenation.
+
+✅ Correct:
+
+```plasmascript
+Print ["Hello " + name]
+```
+
+❌ Incorrect:
+
+```plasmascript
+Print("Hello ", name)
+```
+
+---
+
+## 5️⃣ Functions & Returns
+
+* Use **explicit `return`** for clarity.
+* Don’t rely on implicit returns (they aren’t supported).
+
+✅ Correct:
+
+```plasmascript
+Func add(a, b) {
+    return a + b
+}
+```
+
+---
+
+## 6️⃣ Imports & Exports
+
+* Place all `Import` and `Export` statements at the **top of the file**.
+* Group related imports together.
+
+```plasmascript
+Import "math"
+Import "graphics"
+
+Export Func add(a, b) { return a + b }
+Export Func sub(a, b) { return a - b }
+```
+
+---
+
+## 7️⃣ Memory Operations
+
+* Only use `malloc`, `store`, `load`, `free` when absolutely necessary.
+* For normal programs, prefer lists, dicts, or sets.
+* Always `free` what you `malloc`.
+
+✅ Correct:
+
+```plasmascript
+let ptr = malloc(16)
+store(ptr, 0, 42)
+Print [load(ptr, 0)]
+free(ptr)
+```
+
+---
+
+## 8️⃣ Comprehensions
+
+* Keep comprehensions on a **single line** if short.
+* If they’re long, break them with indentation.
+
+✅ Short:
+
+```plasmascript
+let squares = [x*x for x in [1,2,3,4,5]]
+```
+
+✅ Long:
+
+```plasmascript
+let pairs = [
+    (x, y)
+    for x in [1,2,3]
+    for y in [4,5,6]
+]
+```
+
+---
+
+## 9️⃣ Comments
+
+* Use `;` for inline or standalone comments.
+* Keep comments **short and clear**.
+
+```plasmascript
+; This function greets the user
+Func greetUser(name) {
+    Print ["Hello " + name]
+}
+```
+
+---
+
+## 🔟 Best Practices
+
+1. **Pick one entry/exit form** (`Prog … end` OR `Main … run`) and stick to it.
+2. **Keep functions short** — aim for 10–20 lines max.
+3. **Avoid magic numbers** — name them as constants.
+4. **Prefer collections** (`list`, `dict`, `set`) over manual memory unless you need raw performance.
+5. **Always clean up memory** (`free`, `release`, `arena_reset`).
+6. **Be explicit** with types when clarity matters (`let x: number = 42`).
+
+---
+
+# ✅ Summary
+
+* PlasmaScript encourages **readability and consistency**.
+* You can write formally (`Prog … end`) or conversationally (`Main … run`).
+* Style guides avoid hybrids because they mix tones, reducing clarity.
+* Follow naming, indentation, and import/export rules to keep projects professional.
+
+---
+
+
+
+---
+
+# 📘 PlasmaScript Handbook (Draft)
+
+---
+
+## 🏁 Chapter 1: Introduction
+
+**PlasmaScript** is a minimalist yet powerful programming language designed to balance **expressive readability** with **industrial-grade compilation**.
+
+* **Minimal**: You can write `Prog main() { Print ["hi"] } end` and it works.
+* **Expressive**: You can use functions, closures, lambdas, and comprehensions.
+* **Powerful**: You can interop with C, OpenGL, Vulkan, DirectX, Unity, Unreal, and WASM.
+* **Safe**: Optional memory management (arenas, bump allocators, refcounts).
+* **Fast**: AOT-compiled into `.exe`, `.so`, `.dll`, `.dylib` or WASM.
+
+---
+
+## 🟢 Chapter 2: Program Structure
+
+Every PlasmaScript program starts and ends with one of two **canonical forms**:
+
+* **Formal**:
+
+```plasmascript
+Prog main() {
+    Print ["Hello PlasmaScript!"]
+}
+end
+```
+
+* **Conversational**:
+
+```plasmascript
+Main main() {
+    Print ["Hello PlasmaScript!"]
+}
+run
+```
+
+> ⚠️ Hybrids (`Prog … run`, `Main … end`) are valid but discouraged for consistency.
+
+---
+
+## ✏️ Chapter 3: Variables & Types
+
+### Declaring variables
+
+```plasmascript
+let name = "Shay"
+let age: number = 25
+```
+
+### Built-in types
+
+| Type     | Example          |
+| -------- | ---------------- |
+| `text`   | `"hello"`        |
+| `number` | `42`             |
+| `bool`   | `true`, `false`  |
+| `list`   | `[1, 2, 3]`      |
+| `dict`   | `{name: "Shay"}` |
+| `set`    | `{1, 2, 3}`      |
+| `tuple`  | `(1, "a")`       |
+
+---
+
+## 🔄 Chapter 4: Control Flow
+
+### If/Else
+
+```plasmascript
+if x > 10 {
+    Print ["Big"]
+} else {
+    Print ["Small"]
+}
+```
+
+### Loops
+
+```plasmascript
+for n in [1,2,3] {
+    Print [n]
+}
+```
+
+### Comprehensions
+
+```plasmascript
+let squares = [x*x for x in [1,2,3,4,5]]
+let dicts = {x: x*x for x in [1,2,3]}
+let sets = {x*x for x in [1,2,3]}
+let gens = (x*x for x in [1,2,3])
+```
+
+---
+
+## 🧩 Chapter 5: Functions
+
+### Defining functions
+
+```plasmascript
+Func add(a, b) {
+    return a + b
+}
+```
+
+### Calling functions
+
+```plasmascript
+Print [add(6, 7)]
+```
+
+### Anonymous functions (Lambdas)
+
+```plasmascript
+let square = Func(x) { return x * x }
+Print [square(5)]
+```
+
+### Closures
+
+```plasmascript
+let makeAdder = Func(x) {
+    return Func(y) { return x + y }
+}
+
+let add5 = makeAdder(5)
+Print [add5(3)] ; prints 8
+```
+
+---
+
+## 🧮 Chapter 6: Memory
+
+PlasmaScript gives you **manual + managed memory options**.
+
+### Manual Allocation
+
+```plasmascript
+let ptr = malloc(16)
+store(ptr, 0, 42)
+Print [load(ptr, 0)]
+free(ptr)
+```
+
+### Arena Allocator
+
+```plasmascript
+let arena = arena_init(128)
+let p = arena_alloc(arena, 16)
+arena_reset(arena)
+```
+
+### Refcounted Memory
+
+```plasmascript
+let obj = rc_alloc(32)
+retain(obj)
+release(obj)
+```
+
+### Bump Allocator
+
+```plasmascript
+let bump = bump_init(64)
+let q = bump_alloc(bump, 8)
+bump_reset(bump)
+```
+
+---
+
+## 🌐 Chapter 7: Interoperability
+
+### Importing libraries
+
+```plasmascript
+Import "math"
+Import "opengl32"
+```
+
+### Extern/Export
+
+```plasmascript
+Extern "C" Func glClear(mask: number)
+Export Func add(a, b) { return a + b }
+```
+
+### Inline Dodecagram
+
+```plasmascript
+Inline { dgm(0xDE, 0xAD, 0xBE, 0xEF) }
+```
+
+---
+
+## 🛠 Chapter 8: Style Guide
+
+* Pick **one canonical form** (`Prog … end` OR `Main … run`).
+* Use **lowercase\_with\_underscores** for variables.
+* Use **camelCase** for functions.
+* Use **PascalCase** for modules/types.
+* Use **ALL\_CAPS** for constants.
+* Always free memory you allocate.
+* Keep functions under \~20 lines.
+* Keep comprehensions readable (single-line if short).
+
+---
+
+## 🚀 Chapter 9: Use Cases
+
+PlasmaScript can be used for:
+
+* Systems programming (manual memory, NASM backend).
+* Game development (OpenGL/Vulkan/DirectX/Unity/Unreal interop).
+* Scientific computing (fast comprehensions, closures).
+* Finance/HPC (compiled `.exe` with predictable performance).
+* Creative coding (expressive, poetic syntax).
+* Web/cloud (WASM backend).
+
+---
+
+## 🔮 Chapter 10: Future
+
+* JIT support for live coding.
+* GPU shaders in native PlasmaScript syntax.
+* Auto-vectorization for math.
+* Secure enclave compilation.
+* PlasmaHub (package manager).
+
+---
+
+# ✅ Summary
+
+The **PlasmaScript Handbook** provides:
+
+* A **beginner-friendly entry point** (`Print ["Hello"]`)
+* A **professional standard** (memory, FFI, NASM, LLVM)
+* A **stylistic guide** (formal vs conversational dialects)
+* A roadmap for **games, HPC, finance, embedded, and creative arts**.
+
+---
+
