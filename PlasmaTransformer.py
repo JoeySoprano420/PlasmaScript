@@ -18,3 +18,11 @@ class PlasmaTransformer(Transformer):
         return InlineDgmNode(codes)
     def dgm_call(self, items):
         return [int(str(x)) for x in items]
+
+class PlasmaTransformer(Transformer):
+    # existing methods...
+    def number(self, items): return NumberNode(items[0])
+    def string(self, items): return StringNode(items[0])
+    def var(self, items): return VarNode(str(items[0]))
+    def binop(self, items): return BinOpNode(items[0], str(items[1]), items[2])
+
