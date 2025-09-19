@@ -1,0 +1,20 @@
+Prog main() {
+    ; ===== Arena usage =====
+    let arena = arena_init(128)
+    let p1 = arena_alloc(arena, 16)
+    store(p1, 0, 42)
+    Print [load(p1, 0)]
+    arena_reset(arena)
+
+    ; ===== Refcounted object =====
+    let obj = rc_alloc(16)
+    retain(obj)
+    release(obj)
+    release(obj)   ; frees when refcount hits 0
+
+    ; ===== Bump allocator =====
+    let bump = bump_init(64)
+    let q1 = bump_alloc(bump, 8)
+    bump_reset(bump)
+}
+end
