@@ -15,13 +15,19 @@ PlasmaScript is a minimalist, expressive scripting language designed for clarity
 Minimal Hello World:
 
 ```plasmascript
-; comment Prog () greeting {hello user} Print ["hello Shay!"] run
+
+; comment 
+Prog () greeting {hello user} Print ["hello Shay!"] 
+run
 ```
 
 Alternative form:
 
 ```plasmascript
-; comment Main () greeting {hello user} Print ["hello Shay!"] end
+
+; comment 
+Main () greeting {hello user} Print ["hello Shay!"] 
+end
 ```
 
 Both forms are valid. `run` and `end` serve as interchangeable program terminators.
