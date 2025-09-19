@@ -28,3 +28,9 @@ class FuncNode:
 class CallNode:
     def __init__(self, name, args):
         self.name, self.args = name, args
+
+class CallNode:
+    def __init__(self, name, args):
+        self.name = name
+        self.args = args  # list of expressions
+
