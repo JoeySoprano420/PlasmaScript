@@ -149,3 +149,34 @@ class NASMBackend:
             # assume rax=ptr, rbx=offset
             self.text.append("    mov eax, [rax+rbx]")
 
+arena_init:
+    mov rcx, rdi       ; size
+    call malloc
+    ret
+
+arena_reset:
+    mov rcx, rdi
+    call free
+    ret
+
+rc_alloc:
+    mov rcx, rdi
+    add rcx, 4         ; add space for refcount
+    call malloc
+    mov dword [rax], 1 ; set refcount=1
+    add rax, 4         ; return user ptr
+    ret
+
+retain:
+    sub rdi, 4
+    inc dword [rdi]
+    ret
+
+release:
+    sub rdi, 4
+    dec dword [rdi]
+    jnz .done
+    call free
+.done:
+    ret
+
