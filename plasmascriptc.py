@@ -79,3 +79,16 @@ def compile_exe(output="plasmascript.exe"):
 
 if __name__ == "__main__":
     compile_exe()
+
+# in plasmascriptc.py (extending)
+
+def declare_extern(module, name, rettype, args):
+    fnty = ir.FunctionType(rettype, args)
+    return ir.Function(module, fnty, name=name)
+
+# example inline Dodecagram as LLVM asm
+def inline_dgm(builder, codes):
+    asm_str = "; Dodecagram inline\n"
+    for c in codes:
+        asm_str += f"mov eax, {c}\n"
+    builder.asm(ir.FunctionType(ir.VoidType(), []), asm_str, "", side_effect=True)
